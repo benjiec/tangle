@@ -1,8 +1,8 @@
 from .models import Table, Column
 
-detected = Table("detected", [
+DetectedTable = Table("detected", [
     Column("detection_type", values=("sequence", "structure"), required=True),
-    Column("detection_method", required=True),  # e.g. hmm, prost-t5-foldseek
+    Column("detection_method", required=True, values=("hmm", "prost-t5-foldseek")),
     Column("batch", required=True),
     Column("query_accession", required=True),
     Column("query_database", required=True),
