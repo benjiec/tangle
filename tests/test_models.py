@@ -1,0 +1,106 @@
+import os
+import duckdb
+import unittest
+import tempfile
+
+from tangle.models import Column, Table, CSVSource, Schema
+
+
+class TestWriteTSV(unittest.TestCase):
+
+    def test_write_tsv_file(self):
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".tsv", mode="w") as tmpf:
+            tmpf.close()
+
+            table = Table("test", [Column("a"), Column("b")])
+            table.write_tsv(tmpf.name, [dict(a=1,b=2), dict(a=3,b=4)])
+
+            f = open(tmpf.name, "r")
+            self.assertEqual(f.read(), "a\tb\n1\t2\n3\t4\n")
+            f.close()
+
+            os.remove(tmpf.name)
+
+    def test_loads_tsv_file_into_duckdb(self):
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".tsv", mode="w") as tmpf:
+            tmpf.close()
+
+            table = Table("test", [Column("a"), Column("b")])
+            table.write_tsv(tmpf.name, [dict(a=1,b=2), dict(a=3,b=4)])
+
+            source = CSVSource(table, tmpf.name)
+            schema = Schema("test_schema")
+            schema.add_table(source)
+            schema.duckdb_load()
+
+            con = duckdb.connect(":default:")
+            sql = "SELECT * FROM test_schema.test"
+            data = con.sql(sql).fetchall()
+            self.assertEqual(data, [(1,2), (3,4)])
+            os.remove(tmpf.name)
+
+
+class TestValidation(unittest.TestCase):
+    
+    def test_no_validation(self):
+        table = Table("test", [
+            Column("a"),
+            Column("b")
+        ])
+        rows = [
+            dict(a=1, b=2),
+            dict(a=3, b=4)
+        ]
+        table.validate(rows)
+
+    def test_required_field(self):
+        table = Table("test", [
+            Column("a"),
+            Column("b"),
+            Column("c", required=True),
+        ])
+        rows = [
+            dict(a=1, b=2, c=3),
+            dict(a=3, b=4)
+        ]
+        with self.assertRaisesRegex(Exception, "Cannot insert into table test: record 1 - missing required field c"):
+            table.validate(rows)
+
+    def test_required_field_value(self):
+        table = Table("test", [
+            Column("a"),
+            Column("b"),
+            Column("c", required=True, values=('x', 'y')),
+        ])
+        rows = [
+            dict(a=1, b=2, c=3),
+            dict(a=3, b=4, c='x')
+        ]
+        with self.assertRaisesRegex(Exception, "Cannot insert into table test: record 0 - c must be one of 'x', 'y'"):
+            table.validate(rows)
+
+    def test_field_value_not_checked_if_not_required(self):
+        table = Table("test", [
+            Column("a"),
+            Column("b"),
+            Column("c", values=('x', 'y')),
+        ])
+        rows = [
+            dict(a=1, b=2),
+            dict(a=3, b=4, c='z')
+        ]
+        with self.assertRaisesRegex(Exception, "Cannot insert into table test: record 1 - c must be one of 'x', 'y'"):
+            table.validate(rows)
+
+    def test_field_type(self):
+        table = Table("test", [
+            Column("a", type=int),
+            Column("b", type=float),
+        ])
+        rows = [
+            dict(a=1, b=2.2),
+            dict(a="z", b="4"),
+            dict(a=3.1, b="3"),
+        ]
+        with self.assertRaisesRegex(Exception, "Cannot insert into table test: record 1 - a must be int, record 2 - a must be int"):
+            table.validate(rows)
