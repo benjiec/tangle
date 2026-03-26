@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tangle"
+version = "0.1.0"
+dependencies = [
+  "duckdb>=1.4.3"
+]
+description = "Tangle data models and core libraries"
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+dev = [
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
