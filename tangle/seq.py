@@ -59,7 +59,7 @@ def open_fasta_to_write(fn, mode):
             yield f
 
 
-def write_fasta_from_dict(fasta_dict: Dict[str, str], path: str, append = False):
+def write_fasta_from_dict(fasta_dict, path, append = False):
     mode = "wt"
     if append is True:
         mode = "at"
