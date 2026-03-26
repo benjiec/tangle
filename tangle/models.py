@@ -1,3 +1,4 @@
+import os
 import re
 import csv
 import duckdb
@@ -55,9 +56,14 @@ class Table(object):
         if append is True:
             mode = "a"
 
+        if not append or (not os.path.exists(fn) or os.path.getsize(fn) == 0):
+            write_header = True
+        else:
+            write_header = False
+
         with open_file_to_write(fn, mode) as f:
             writer = csv.DictWriter(f, fieldnames=self.fieldnames(), delimiter='\t')
-            if not append:
+            if write_header:
                 writer.writeheader()
             for row in row_dicts:
                 writer.writerow(row)

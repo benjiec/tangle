@@ -21,6 +21,33 @@ class TestWriteTSV(unittest.TestCase):
 
             os.remove(tmpf.name)
 
+    def test_append_to_tsv_file(self):
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".tsv", mode="w") as tmpf:
+            tmpf.close()
+
+            table = Table("test", [Column("a"), Column("b")])
+            table.write_tsv(tmpf.name, [dict(a=1,b=2), dict(a=3,b=4)])
+            table.write_tsv(tmpf.name, [dict(a=5,b=6)], append=True)
+
+            f = open(tmpf.name, "r")
+            self.assertEqual(f.read(), "a\tb\n1\t2\n3\t4\n5\t6\n")
+            f.close()
+
+            os.remove(tmpf.name)
+
+    def test_append_behaves_like_write_if_file_does_not_exist_or_empty(self):
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".tsv", mode="w") as tmpf:
+            tmpf.close()
+
+            table = Table("test", [Column("a"), Column("b")])
+            table.write_tsv(tmpf.name, [dict(a=1,b=2), dict(a=3,b=4)], append=True)
+
+            f = open(tmpf.name, "r")
+            self.assertEqual(f.read(), "a\tb\n1\t2\n3\t4\n")
+            f.close()
+
+            os.remove(tmpf.name)
+
     def test_loads_tsv_file_into_duckdb(self):
         with tempfile.NamedTemporaryFile(delete=False, suffix=".tsv", mode="w") as tmpf:
             tmpf.close()
