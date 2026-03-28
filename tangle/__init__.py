@@ -20,5 +20,5 @@ def open_file_to_write(fn, mode):
     else:
         is_gz = fn.endswith(".gz")
         opener = gzip.open if is_gz else open
-        with opener(fn, mode, encoding="utf-8") as f:
+        with opener(fn, mode) as f:
             yield f
