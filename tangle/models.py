@@ -70,9 +70,9 @@ class Table(object):
     def write_tsv(self, fn, rows, append = False):
         row_dicts = self.validate(rows)
 
-        mode = "w"
+        mode = "wt"
         if append is True:
-            mode = "a"
+            mode = "at"
 
         if not append or (not os.path.exists(fn) or os.path.getsize(fn) == 0):
             write_header = True
