@@ -87,7 +87,7 @@ class TestValidation(unittest.TestCase):
             dict(a=1, b=2, c=3),
             dict(a=3, b=4)
         ]
-        with self.assertRaisesRegex(Exception, "Cannot insert into table test: record 1 - missing required field c"):
+        with self.assertRaisesRegex(Exception, "Cannot insert into table test: missing required field c, in record 1"):
             table.validate(rows)
 
     def test_required_field_value(self):
@@ -100,7 +100,7 @@ class TestValidation(unittest.TestCase):
             dict(a=1, b=2, c=3),
             dict(a=3, b=4, c='x')
         ]
-        with self.assertRaisesRegex(Exception, "Cannot insert into table test: record 0 - c must be one of 'x', 'y'"):
+        with self.assertRaisesRegex(Exception, "Cannot insert into table test: c must be one of 'x', 'y', in record 0"):
             table.validate(rows)
 
     def test_field_value_not_checked_if_not_required(self):
@@ -113,7 +113,7 @@ class TestValidation(unittest.TestCase):
             dict(a=1, b=2),
             dict(a=3, b=4, c='z')
         ]
-        with self.assertRaisesRegex(Exception, "Cannot insert into table test: record 1 - c must be one of 'x', 'y'"):
+        with self.assertRaisesRegex(Exception, "Cannot insert into table test: c must be one of 'x', 'y', in record 1"):
             table.validate(rows)
 
     def test_field_type(self):
@@ -126,5 +126,5 @@ class TestValidation(unittest.TestCase):
             dict(a="z", b="4"),
             dict(a=3.1, b="3"),
         ]
-        with self.assertRaisesRegex(Exception, "Cannot insert into table test: record 1 - a must be int, record 2 - a must be int"):
+        with self.assertRaisesRegex(Exception, "Cannot insert into table test: a must be int, in records 1, 2"):
             table.validate(rows)

@@ -28,25 +28,43 @@ class Table(object):
         return [c.name for c in self.columns]
 
     def validate(self, rows):
-        errors = []
+        errors = {}
+        max_errors = 10
+
+        def add_error(errcode, record_i):
+            if errcode in errors:
+                if len(errors[errcode]) < max_errors:
+                    errors[errcode].append(record_i)
+            else:
+                errors[errcode] = [record_i]
+
         row_dicts = []
         for i,row in enumerate(rows):
             row_dict = row.copy()
             for column in self.columns:
                 if column.required and column.name not in row_dict:
-                    errors.append(f"record {i} - missing required field {column.name}")
+                    errcode = f"missing required field {column.name}"
+                    add_error(errcode, i)
+
                 if column.values and column.name in row_dict and row_dict[column.name] and row_dict[column.name] not in column.values:
                     values = ", ".join([f"'{x}'" for x in column.values])
-                    errors.append(f"record {i} - {column.name} must be one of {values}")
+                    errcode = f"{column.name} must be one of {values}"
+                    add_error(errcode, i)
+
                 if column.name in row_dict and column.type is not str:
                     try:
                         row_dict[column.name] = column.type(str(row_dict[column.name]))
                     except:
-                        errors.append(f"record {i} - {column.name} must be {column.type.__name__}")
+                        errcode = f"{column.name} must be {column.type.__name__}"
+                        add_error(errcode, i)
+
             row_dicts.append(row_dict)
 
         if errors:
-            raise Exception(f"Cannot insert into table {self.name}: {', '.join(errors)}")
+            error_strings = \
+              [f"{errcode}, in record{'s' if len(records) > 1 else ''} "+\
+               f"{', '.join([str(x) for x in records])}{' (or more)' if len(records) >= max_errors else ''}" for errcode, records in errors.items()]
+            raise Exception(f"Cannot insert into table {self.name}: {'; '.join(error_strings)}")
         return row_dicts
 
     def write_tsv(self, fn, rows, append = False):
