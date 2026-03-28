@@ -1,4 +1,5 @@
 import os
+import gzip
 import duckdb
 import unittest
 import tempfile
@@ -19,7 +20,6 @@ class TestWriteTSV(unittest.TestCase):
             self.assertEqual(f.read(), "a\tb\n1\t2\n3\t4\n")
             f.close()
 
-
     def test_append_to_tsv_file(self):
         with tempfile.TemporaryDirectory() as tmpd:
             tmpf = os.path.join(tmpd, "test.tsv")
@@ -32,7 +32,6 @@ class TestWriteTSV(unittest.TestCase):
             self.assertEqual(f.read(), "a\tb\n1\t2\n3\t4\n5\t6\n")
             f.close()
 
-
     def test_append_behaves_like_write_if_file_does_not_exist_or_empty(self):
         with tempfile.TemporaryDirectory() as tmpd:
             tmpf = os.path.join(tmpd, "test.tsv")
@@ -43,7 +42,6 @@ class TestWriteTSV(unittest.TestCase):
             f = open(tmpf, "r")
             self.assertEqual(f.read(), "a\tb\n1\t2\n3\t4\n")
             f.close()
-
 
     def test_loads_tsv_file_into_duckdb(self):
         with tempfile.TemporaryDirectory() as tmpd:
@@ -62,6 +60,40 @@ class TestWriteTSV(unittest.TestCase):
             data = con.sql(sql).fetchall()
             self.assertEqual(data, [(1,2), (3,4)])
             os.remove(tmpf)
+
+    def test_write_compressed_tsv_file(self):
+        with tempfile.TemporaryDirectory() as tmpd:
+            tmpf = os.path.join(tmpd, "test.tsv.gz")
+
+            table = Table("test", [Column("a"), Column("b")])
+            table.write_tsv(tmpf, [dict(a=1,b=2), dict(a=3,b=4)])
+
+            f = gzip.open(tmpf, "rt")
+            self.assertEqual(f.read(), "a\tb\n1\t2\n3\t4\n")
+            f.close()
+
+    def test_append_compressed_tsv_file(self):
+        with tempfile.TemporaryDirectory() as tmpd:
+            tmpf = os.path.join(tmpd, "test.tsv.gz")
+
+            table = Table("test", [Column("a"), Column("b")])
+            table.write_tsv(tmpf, [dict(a=1,b=2), dict(a=3,b=4)])
+            table.write_tsv(tmpf, [dict(a=5,b=6)], append=True)
+
+            f = gzip.open(tmpf, "rt")
+            self.assertEqual(f.read(), "a\tb\n1\t2\n3\t4\n5\t6\n")
+            f.close()
+
+    def test_append_to_new_compressed_tsv_file_adds_header(self):
+        with tempfile.TemporaryDirectory() as tmpd:
+            tmpf = os.path.join(tmpd, "test.tsv.gz")
+
+            table = Table("test", [Column("a"), Column("b")])
+            table.write_tsv(tmpf, [dict(a=1,b=2), dict(a=3,b=4)], append=True)
+
+            f = gzip.open(tmpf, "rt")
+            self.assertEqual(f.read(), "a\tb\n1\t2\n3\t4\n")
+            f.close()
 
 
 class TestValidation(unittest.TestCase):

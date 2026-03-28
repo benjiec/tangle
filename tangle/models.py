@@ -80,7 +80,7 @@ class Table(object):
             write_header = False
 
         with open_file_to_write(fn, mode) as f:
-            writer = csv.DictWriter(f, fieldnames=self.fieldnames(), delimiter='\t')
+            writer = csv.DictWriter(f, fieldnames=self.fieldnames(), delimiter='\t', lineterminator='\n')
             if write_header:
                 writer.writeheader()
             for row in row_dicts:
