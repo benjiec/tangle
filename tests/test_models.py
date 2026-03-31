@@ -43,24 +43,6 @@ class TestWriteTSV(unittest.TestCase):
             self.assertEqual(f.read(), "a\tb\n1\t2\n3\t4\n")
             f.close()
 
-    def test_loads_tsv_file_into_duckdb(self):
-        with tempfile.TemporaryDirectory() as tmpd:
-            tmpf = os.path.join(tmpd, "test.tsv")
-
-            table = Table("test", [Column("a"), Column("b")])
-            table.write_tsv(tmpf, [dict(a=1,b=2), dict(a=3,b=4)])
-
-            source = CSVSource(table, tmpf)
-            schema = Schema("test_schema")
-            schema.add_table(source)
-            schema.duckdb_load()
-
-            con = duckdb.connect(":default:")
-            sql = "SELECT * FROM test_schema.test"
-            data = con.sql(sql).fetchall()
-            self.assertEqual(data, [(1,2), (3,4)])
-            os.remove(tmpf)
-
     def test_write_compressed_tsv_file(self):
         with tempfile.TemporaryDirectory() as tmpd:
             tmpf = os.path.join(tmpd, "test.tsv.gz")
@@ -94,6 +76,50 @@ class TestWriteTSV(unittest.TestCase):
             f = gzip.open(tmpf, "rt")
             self.assertEqual(f.read(), "a\tb\n1\t2\n3\t4\n")
             f.close()
+
+
+class TestLoadTSVs(unittest.TestCase):
+
+    def test_loads_tsv_file_into_duckdb(self):
+        with tempfile.TemporaryDirectory() as tmpd:
+            tmpf = os.path.join(tmpd, "test.tsv")
+
+            table = Table("test", [Column("a"), Column("b")])
+            table.write_tsv(tmpf, [dict(a=1,b=2), dict(a=3,b=4)])
+
+            source = CSVSource(table, tmpf)
+            schema = Schema("test_schema")
+            schema.add_table(source)
+            schema.duckdb_load()
+
+            con = duckdb.connect(":default:")
+            sql = "SELECT * FROM test_schema.test"
+            data = con.sql(sql).fetchall()
+            self.assertEqual(data, [(1,2), (3,4)])
+            os.remove(tmpf)
+
+    def test_loads_multiple_tsvs(self):
+        with tempfile.TemporaryDirectory() as tmpd:
+            tmpf1 = os.path.join(tmpd, "test1.tsv")
+            tmpf2 = os.path.join(tmpd, "test2.tsv")
+
+            table = Table("test", [Column("a"), Column("b")])
+            table.write_tsv(tmpf1, [dict(a=1,b=2), dict(a=3,b=4)])
+            table = Table("test", [Column("a"), Column("b")])
+            table.write_tsv(tmpf2, [dict(a=5,b=6)])
+
+            source = CSVSource(table, tmpf1, tmpf2)
+            schema = Schema("test_schema")
+            schema.add_table(source)
+            schema.duckdb_load()
+
+            con = duckdb.connect(":default:")
+            sql = "SELECT * FROM test_schema.test"
+            data = con.sql(sql).fetchall()
+            self.assertEqual(data, [(1,2), (3,4), (5,6)])
+
+            os.remove(tmpf1)
+            os.remove(tmpf2)
 
 
 class TestValidation(unittest.TestCase):

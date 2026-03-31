@@ -98,12 +98,13 @@ class LocalTableSource(object):
 
 class CSVSource(LocalTableSource):
 
-    def __init__(self, table, path):
+    def __init__(self, table, *paths):
         super(CSVSource, self).__init__(table)
-        self.path = path
+        self.paths = paths
 
     def duckdb_source_str(self):
-        return f"read_csv_auto('{self.path}', normalize_names=TRUE)"
+        paths = [f"'{x}'" for x in self.paths]
+        return f"read_csv_auto([{",".join(paths)}], union_by_name=TRUE, normalize_names=TRUE)"
 
 
 class Schema(object):
