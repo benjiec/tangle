@@ -14,28 +14,89 @@ class Feature:
     database: str
     type: str
 
-    def repr(self):
+    def tuple(self):
         return (self.accession, self.database, self.type)
 
 
-def recursive_project(start_accession, schema, fuzz):
+class Match(object):
+
+    def __init__(self, match_dict, last_match):
+        self._m = match_dict
+        self.last_match = last_match
+
+        if last_match is None:
+            self.target_strand_relative_to_start = 1
+        else:
+            assert self.query_feature == last_match.target_feature
+            if self._m["query_start"] < self._m["query_end"] and self._m["target_start"] <= self._m["target_end"]:
+                matched_strand_relative_to_query = 1
+            elif self._m["query_start"] < self._m["query_end"] and self._m["target_start"] > self._m["target_end"]:
+                matched_strand_relative_to_query = -1
+            elif self._m["query_start"] >= self._m["query_end"] and self._m["target_start"] <= self._m["target_end"]:
+                matched_strand_relative_to_query = -1
+            elif self._m["query_start"] >= self._m["query_end"] and self._m["target_start"] > self._m["target_end"]:
+                matched_strand_relative_to_query = 1
+            self.target_strand_relative_to_start = last_match.target_strand_relative_to_start * matched_strand_relative_to_query
+
+    @property
+    def query_feature(self):
+        return Feature(
+            accession=self._m["query_accession"],
+            database=self._m["query_database"],
+            type=self._m["query_type"]
+        )
+
+    @property
+    def target_feature(self):
+        return Feature(
+            accession=self._m["target_accession"],
+            database=self._m["target_database"],
+            type=self._m["target_type"]
+        )
+
+    @property
+    def t_s_ordered(self):
+        return min(self._m["target_start"], self._m["target_end"]) if self._m["target_start"] is not None else None
+
+    @property
+    def t_e_ordered(self):
+        return max(self._m["target_start"], self._m["target_end"]) if self._m["target_start"] is not None else None
+
+    # mostly for testing
+    def summary(self):
+        return (self.target_feature, self.t_s_ordered, self.t_e_ordered, self.target_strand_relative_to_start)
+
+    @staticmethod
+    def start_with(start_feature):
+        m = dict(
+          target_database = start_feature.database,
+          target_type = start_feature.type,
+          target_accession = start_feature.accession,
+          target_start = None,
+          target_end = None,
+        )
+        return Match(m, None)
+        
+
+def recursive_project(start_feature, schema, fuzz):
 
     schema.duckdb_load()
     db = duckdb.connect(':default:')
 
-    # Queue stores: (accession, start, end, strand_relative_to_root)
-
-    queue = [(start_accession, None, None, 1)]
+    queue = [Match.start_with(start_feature)]
     results = []
     visited = set()
 
     while queue:
-        curr_acc, curr_s, curr_e, strand_relative_to_root = queue.pop(0)
-        assert curr_s is None or curr_s < curr_e
+        last_match = queue.pop(0)
+        curr_feature = last_match.target_feature
+        curr_s = last_match.t_s_ordered
+        curr_e = last_match.t_e_ordered
 
         # Prevent infinite loops
-        state = (curr_acc.repr(), curr_s, curr_e, strand_relative_to_root)
-        if state in visited: continue
+        state = (curr_feature.tuple(), curr_s, curr_e)
+        if state in visited:
+          continue
         visited.add(state)
 
         coord_cond = ""
@@ -44,32 +105,25 @@ def recursive_project(start_accession, schema, fuzz):
                                OR (query_start  > query_end AND query_end >= {curr_s-fuzz} AND query_start <= {curr_e+fuzz}))"""
 
         query = f"""
-            SELECT query_start, query_end, target_accession, target_database, target_type, target_start, target_end
+            SELECT *
               FROM {schema.name}.{DetectedTable.name}
-             WHERE query_accession = '{curr_acc.accession}'
-               AND query_database = '{curr_acc.database}'
-               AND query_type = '{curr_acc.type}'
+             WHERE query_accession = '{curr_feature.accession}'
+               AND query_database = '{curr_feature.database}'
+               AND query_type = '{curr_feature.type}'
                {coord_cond}
         """
 
         # print(f"STATE {state}\nSQL {query}")
-        matches = db.execute(query).fetchall()
+        matches = db.execute(query).fetchdf().to_dict('records')
 
-        for q_s, q_e, t_acc, t_db, t_type, t_s, t_e in matches:
-            if q_s < q_e and t_s <= t_e:
-                matched_strand_relative_to_query = 1
-            elif q_s < q_e and t_s > t_e:
-                matched_strand_relative_to_query = -1
-            elif q_s >= q_e and t_s <= t_e:
-                matched_strand_relative_to_query = -1
-            elif q_s >= q_e and t_s > t_e:
-                matched_strand_relative_to_query = 1
-
-            new_feature = Feature(accession=t_acc, database=t_db, type=t_type)
-            new_state = (new_feature.repr(), min(t_s, t_e), max(t_s, t_e), strand_relative_to_root * matched_strand_relative_to_query)
-            if new_state not in visited:
-                results.append((new_feature, new_state[1], new_state[2], new_state[3]))
-                queue.append(results[-1])
-                # print(f"ADD {results[-1]}")
+        for match_dict in matches:
+            match = Match(match_dict, last_match)
+            results.append(match)
+            queue.append(match)
 
     return results
+
+
+def results_to_detected_table(results, tsv_fn, append = False):
+    rows = [m._m for m in results]
+    DetectedTable.write_tsv(tsv_fn, rows, append = append)

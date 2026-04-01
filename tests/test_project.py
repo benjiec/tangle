@@ -2,7 +2,7 @@ import os
 import unittest
 import tempfile
 
-from tangle.project import recursive_project, Feature
+from tangle.project import recursive_project, Feature, results_to_detected_table
 from tangle.models import CSVSource, Schema
 from tangle.detected import DetectedTable
 
@@ -46,7 +46,7 @@ class TestFeatureProjection(unittest.TestCase):
             schema.add_table(source)
 
             results = recursive_project(Feature("acc1", "d", "protein"), schema, fuzz=0)
-            self.assertEqual(results, [
+            self.assertEqual([m.summary() for m in results], [
                 (Feature("acc2", "d", "protein"), 1, 70, 1),
                 (Feature("acc3", "d", "protein"), 15, 30, 1),
             ])
@@ -80,7 +80,7 @@ class TestFeatureProjection(unittest.TestCase):
             schema.add_table(source)
 
             results = recursive_project(Feature("acc1", "d", "protein"), schema, fuzz=0)
-            self.assertEqual(results, [
+            self.assertEqual([m.summary() for m in results], [
                 (Feature("acc2", "d", "protein"), 1, 70, 1),
                 (Feature("acc3", "d", "protein"), 15, 30, 1),
                 (Feature("acc4", "d", "protein"), 1, 20, 1),
@@ -108,12 +108,12 @@ class TestFeatureProjection(unittest.TestCase):
             schema.add_table(source)
 
             results = recursive_project(Feature("acc1", "d", "protein"), schema, fuzz=0)
-            self.assertEqual(results, [
+            self.assertEqual([m.summary() for m in results], [
                 (Feature("acc2", "d", "protein"), 10, 70, 1),
             ])
 
             results = recursive_project(Feature("acc1", "d", "protein"), schema, fuzz=5)
-            self.assertEqual(results, [
+            self.assertEqual([m.summary() for m in results], [
                 (Feature("acc2", "d", "protein"), 10, 70, 1),
                 (Feature("acc3", "d", "protein"), 15, 30, 1),
             ])
@@ -151,7 +151,7 @@ class TestFeatureProjection(unittest.TestCase):
             schema.add_table(source)
 
             results = recursive_project(Feature("acc1", "d", "protein"), schema, fuzz=0)
-            self.assertCountEqual(results, [
+            self.assertCountEqual([m.summary() for m in results], [
                 (Feature("acc2", "d", "protein"), 10, 70, -1),
                 (Feature("acc3", "d", "protein"), 15, 30, -1),
                 (Feature("acc4", "d", "protein"), 70, 90, 1),
@@ -185,7 +185,7 @@ class TestFeatureProjection(unittest.TestCase):
             schema.add_table(source)
 
             results = recursive_project(Feature("acc1", "d1", "protein"), schema, fuzz=0)
-            self.assertEqual(results, [
+            self.assertEqual([m.summary() for m in results], [
                 (Feature("acc2", "d1", "protein"), 10, 70, 1),
                 (Feature("acc3", "d2", "protein"), 15, 30, 1),
             ])
@@ -211,7 +211,46 @@ class TestFeatureProjection(unittest.TestCase):
             schema.add_table(source)
 
             results = recursive_project(Feature("acc1", "d", "protein"), schema, fuzz=0)
-            self.assertEqual(results, [
+            self.assertEqual([m.summary() for m in results], [
                 (Feature("acc2", "d", "protein"), 10, 70, 1),
                 (Feature("acc1", "d", "protein"), 15, 40, 1),
             ])
+
+    def test_results_can_become_a_table(self):
+
+        with tempfile.TemporaryDirectory() as tmpd:
+            tmpf = os.path.join(tmpd, "test.tsv")
+            outf = os.path.join(tmpd, "out.tsv")
+
+            DetectedTable.write_tsv(tmpf, [
+                detected_row_fixture | dict(
+                    query_accession="acc1", query_start=12, query_end=42,
+                    target_accession="acc2", target_start=1, target_end=70
+                ),
+                detected_row_fixture | dict(
+                    query_accession="acc2", query_start=3, query_end=20,
+                    target_accession="acc3", target_start=15, target_end=30
+                ),
+                # coordinates of this match on acc2 is outside of the acc2 region matched to acc1
+                detected_row_fixture | dict(
+                    query_accession="acc2", query_start=80, query_end=100,
+                    target_accession="acc5", target_start=1, target_end=20
+                )
+            ])
+
+            source = CSVSource(DetectedTable, tmpf)
+            schema = Schema("schema")
+            schema.add_table(source)
+
+            results = recursive_project(Feature("acc1", "d", "protein"), schema, fuzz=0)
+
+            results_to_detected_table(results, outf)
+            with open(outf, "r") as f:
+                received = f.read()
+
+            expected = """
+detection_type	detection_method	batch	query_accession	query_database	query_type	target_accession	target_database	target_type	query_start	query_end	target_start	target_end	evalue	bitscore	bitscore_threshold	custom_metric_name	custom_metric_value
+sequence	hmm	foo	acc1	d	protein	acc2	d	protein	12	42	1	70					
+sequence	hmm	foo	acc2	d	protein	acc3	d	protein	3	20	15	30
+"""
+            self.assertEqual(received.strip(), expected.strip())

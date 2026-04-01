@@ -51,7 +51,7 @@ class Table(object):
                     errcode = f"{column.name} must be one of {values}"
                     add_error(errcode, i)
 
-                if column.name in row_dict and column.type is not str:
+                if column.name in row_dict and row_dict[column.name] is not None and column.type is not str:
                     try:
                         row_dict[column.name] = column.type(str(row_dict[column.name]))
                     except:
