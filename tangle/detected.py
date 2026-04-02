@@ -10,6 +10,7 @@ DetectedTable = Table("detected", [
     Column("target_accession", required=True),
     Column("target_database", required=True),
     Column("target_type", values=("transcript", "gene", "exon", "cds", "protein")),
+    Column("target_model"),
     Column("query_start", type=int, required=True),
     Column("query_end", type=int, required=True),
     Column("target_start", type=int),
