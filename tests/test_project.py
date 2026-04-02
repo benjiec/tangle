@@ -249,8 +249,8 @@ class TestFeatureProjection(unittest.TestCase):
                 received = f.read()
 
             expected = """
-detection_type	detection_method	batch	query_accession	query_database	query_type	target_accession	target_database	target_type	query_start	query_end	target_start	target_end	evalue	bitscore	bitscore_threshold	custom_metric_name	custom_metric_value
-sequence	hmm	foo	acc1	d	protein	acc2	d	protein	12	42	1	70					
-sequence	hmm	foo	acc2	d	protein	acc3	d	protein	3	20	15	30
+detection_type	detection_method	batch	query_accession	query_database	query_type	target_accession	target_database	target_type	target_model	query_start	query_end	target_start	target_end	evalue	bitscore	bitscore_threshold	custom_metric_name	custom_metric_value
+sequence	hmm	foo	acc1	d	protein	acc2	d	protein		12	42	1	70					
+sequence	hmm	foo	acc2	d	protein	acc3	d	protein		3	20	15	30
 """
             self.assertEqual(received.strip(), expected.strip())
