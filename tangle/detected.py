@@ -1,7 +1,12 @@
 from .models import Table, Column
 
+# Semantics of this table
+#
+# If detection_type is sequence, target_start and target_end are sequence coordinates on the target_accession
+# If detection_type is model, target_start and target_end are sequence coordinates on the target_model
+
 DetectedTable = Table("detected", [
-    Column("detection_type", values=("sequence", "structure"), required=True),
+    Column("detection_type", values=("sequence", "model"), required=True),
     Column("detection_method", required=True, values=("transdecoder", "blast", "bowtie", "hmm", "prost-t5-foldseek")),
     Column("batch", required=True),
     Column("query_accession", required=True),
