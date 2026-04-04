@@ -11,6 +11,10 @@ class Defaults(object):
         return Path(world)
 
     @staticmethod
+    def tangle_dir():
+        return Defaults.world_dir() / "tangle"
+
+    @staticmethod
     def ncbi_download_dir():
         return Defaults.world_dir() / "ncbi"
 
@@ -33,6 +37,14 @@ class Defaults(object):
     @staticmethod
     def ncbi_genome_fna(genome_accession):
         return Defaults.ncbi_genome_dir(genome_accession) / "genomic.fna"
+
+    @staticmethod
+    def kegg_module_list_tsv():
+        return Defaults.tangle_dir() / "kegg_modules.tsv"
+
+    @staticmethod
+    def kegg_module_def_csv():
+        return Defaults.tangle_dir() / "kegg_module_defs.csv"
 
     @staticmethod
     def areas_dir():

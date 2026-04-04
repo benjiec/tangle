@@ -40,6 +40,12 @@ Download files related to an NCBI genome accession
 python3 scripts/world/ncbi-download.py <accession>
 ```
 
+Download various KEGG files
+
+```
+python3 scripts/world/kegg-download.sh
+```
+
 
 ## Area Scripts
 
@@ -62,7 +68,8 @@ You can use this with the `ncbi-download.py` script, e.g.
 python3 scripts/area/genome-list.py | python3 scripts/world/ncbi-download.py -
 ```
 
-And to fetch taxonomy metadata
+And to fetch taxonomy metadata - note that the taxonomy files are kept in
+"world", and shared across areas.
 
 ```
 python3 scripts/area/genome-list.py | python3 scripts/world/ncbi-genome-metadata.py -
