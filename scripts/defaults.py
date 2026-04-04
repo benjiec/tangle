@@ -12,11 +12,15 @@ class Defaults(object):
 
     @staticmethod
     def ncbi_download_dir():
-        return Defaults.world_dir() / "ncbi-downloads/ncbi_dataset/data"
+        return Defaults.world_dir() / "ncbi"
+
+    @staticmethod
+    def ncbi_downloaded_data_dir():
+        return Defaults.ncbi_downloaded_data_dir() / "ncbi_dataset/data"
 
     @staticmethod
     def ncbi_genome_dir(genome_accession):
-        return Defaults.ncbi_download_dir() / genome_accession
+        return Defaults.ncbi_downloaded_data_dir() / genome_accession
 
     @staticmethod
     def ncbi_genome_protein_faa(genome_accession):
@@ -31,7 +35,15 @@ class Defaults(object):
         return Defaults.ncbi_genome_dir(genome_accession) / "genomic.fna"
 
     @staticmethod
+    def areas_dir():
+        return Defaults.world_dir() / "areas"
+
+    @staticmethod
     def area_dir():
         area = os.environ.get('TANGLE_AREA')
         assert area is not None
-        return Path(area)
+        return Defaults.areas_dir() / area
+
+    @staticmethod
+    def area_genomes():
+        return Defaults.area_dir() / "genomes.csv"

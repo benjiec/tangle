@@ -20,3 +20,38 @@ to the consumer repository's `pyproject.toml` or `requirements.txt` file
 tangle @ git+https://github.com/benjiec/tangle.git@<hash>
 ```
 
+
+## Environment/Directory Setup
+
+Point the TANGLE_WORLD environment variable to a root directory. This is where
+all tangle files are located.
+
+Set the TANGLE_AREA environment variable to name of a focus area, e.g. "coral".
+
+`scripts/world` scripts will maintain files under TANGLE_WORLD. `scripts/area`
+scripts will maintain files under the focus area.
+
+
+## World Scripts
+
+Download files related to an NCBI genome accession
+
+```
+python3 scripts/world/ncbi-download.py <accession>
+```
+
+
+## Area Scripts
+
+Genomes to be used for an area should be manually curated in the `genomes.csv`
+file under the area directory. This CSV should follow the schema outlined in
+`tangle.genomes.GenomeAccessionList` table.
+
+To get list of genomes, then filter by those requiring protein detection, and
+those with NCBI curated proteins, respectively, use these scripts
+
+```
+python3 scripts/area/genome-list.py
+python3 scripts/area/genome-list.py -d
+python3 scripts/area/genome-list.py -n
+```

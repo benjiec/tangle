@@ -2,7 +2,7 @@ import os
 import re
 import csv
 import duckdb
-from . import open_file_to_write
+from . import open_file_to_write, unique_batch
 
 
 class Column(object):
@@ -92,8 +92,11 @@ class LocalTableSource(object):
     def __init__(self, table):
         self.table = table
 
+    def table_name(self, schema):
+        return f"{schema.name}.{self.table.name}"
+
     def duckdb_create_table_str(self, schema):
-        return f"CREATE TABLE {schema}.{self.table.name} AS SELECT * FROM {self.duckdb_source_str()}"
+        return f"CREATE TABLE {self.table_name(schema)} AS SELECT * FROM {self.duckdb_source_str()}"
 
 
 class CSVSource(LocalTableSource):
@@ -105,6 +108,29 @@ class CSVSource(LocalTableSource):
     def duckdb_source_str(self):
         paths = [f"'{x}'" for x in self.paths]
         return f"read_csv_auto([{",".join(paths)}], union_by_name=TRUE, normalize_names=TRUE)"
+
+    def values(self, schema=None, column_filters=None, just=None):
+        if schema is None:
+            schema = Schema('__temp__'+unique_batch())
+            schema.add_table(self)
+            schema.duckdb_load()
+
+        if column_filters:
+            cond = f" WHERE {' AND '.join(column_filters)}"
+        else:
+            cond = ""
+
+        if just is None:
+            fields = "*"
+        else:
+            fields = just
+        query = f"SELECT {fields} FROM {self.table_name(schema)}{cond}"
+
+        values = duckdb.execute(query).fetchdf().to_dict('records')
+        if just is None:
+            return values
+        else:
+            return [v[just] for v in values]
 
 
 class Schema(object):
@@ -122,4 +148,4 @@ class Schema(object):
         duckdb.execute(f"DROP SCHEMA IF EXISTS {self.name} CASCADE")
         duckdb.execute(f"CREATE SCHEMA {self.name}")
         for source in self.table_sources:
-            duckdb.execute(source.duckdb_create_table_str(self.name))
+            duckdb.execute(source.duckdb_create_table_str(self))

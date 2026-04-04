@@ -186,3 +186,39 @@ class TestValidation(unittest.TestCase):
         ]
         with self.assertRaisesRegex(Exception, "Cannot insert into table test: a must be int, in records 1, 2"):
             table.validate(rows)
+
+
+class TestLoadingData(unittest.TestCase):
+
+    def test_get_values_from_csv(self):
+        with tempfile.TemporaryDirectory() as tmpd:
+            tmpf = os.path.join(tmpd, "test.tsv")
+
+            table = Table("test", [Column("a"), Column("b")])
+            table.write_tsv(tmpf, [dict(a=1,b=2), dict(a=3,b=4)])
+
+            source = CSVSource(table, tmpf)
+            values = source.values()
+            self.assertCountEqual(values, [dict(a=1,b=2), dict(a=3,b=4)])
+
+    def test_get_values_with_filters(self):
+        with tempfile.TemporaryDirectory() as tmpd:
+            tmpf = os.path.join(tmpd, "test.tsv")
+
+            table = Table("test", [Column("a"), Column("b")])
+            table.write_tsv(tmpf, [dict(a=1,b=2), dict(a=3,b=4)])
+
+            source = CSVSource(table, tmpf)
+            values = source.values(column_filters=["b<3"])
+            self.assertCountEqual(values, [dict(a=1,b=2)])
+
+    def test_get_single_column_values_with_filters(self):
+        with tempfile.TemporaryDirectory() as tmpd:
+            tmpf = os.path.join(tmpd, "test.tsv")
+
+            table = Table("test", [Column("a"), Column("b")])
+            table.write_tsv(tmpf, [dict(a=1,b=2), dict(a=3,b=4)])
+
+            source = CSVSource(table, tmpf)
+            values = source.values(column_filters=["b<3"], just="a")
+            self.assertCountEqual(values, [1])
