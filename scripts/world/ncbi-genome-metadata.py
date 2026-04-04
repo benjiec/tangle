@@ -5,6 +5,7 @@ import requests
 import argparse
 import xml.etree.ElementTree as ET
 from scripts.defaults import Defaults
+from tangle import open_file_to_read
 
 
 def _parse_taxonomy_lineage(root):
@@ -131,17 +132,18 @@ def fetch_and_append_taxonomy(genome_acc: str, taxonomy_tsv: str):
         for row in rows:
             writer.writerow(row)
 
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("accessions_fn")
     args = parser.parse_args()
 
-    with open(args.accessions_fn, "r") as f:
+    with open_file_to_read(args.accessions_fn) as f:
         lines = f.readlines()
         for line in lines:
             accession = line.strip()
             assert len(accession.split()) == 1
             print(accession)
-            fetch_and_append_taxonomy(accession, "data/genomes.tsv")
+            fetch_and_append_taxonomy(accession, Defaults.area_genome_taxon_tsv())
             time.sleep(1)

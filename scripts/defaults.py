@@ -45,5 +45,13 @@ class Defaults(object):
         return Defaults.areas_dir() / area
 
     @staticmethod
+    def area_metadata_dir():
+        return Defaults.area_dir() / "metadata"
+
+    @staticmethod
     def area_genomes():
         return Defaults.area_dir() / "genomes.csv"
+
+    @staticmethod
+    def area_genome_taxon_tsv():
+        return Defaults.area_metadata_dir() / "genomes.tsv"
