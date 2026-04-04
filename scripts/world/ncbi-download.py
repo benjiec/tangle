@@ -1,15 +1,13 @@
 import os
 import sys
-import csv
 import glob
 import shutil
-import subprocess
 import zipfile
 import requests
-import xml.etree.ElementTree as ET
 from pathlib import Path
 import argparse
 import time
+from tangle import open_file_to_read
 from scripts.defaults import Defaults
 
 
@@ -223,7 +221,7 @@ def process_accession_file(accession_file: str, output_dir: str, delay: float = 
     total_count = 0
     
     try:
-        with open(accession_file, 'r') as f:
+        with open_file_to_read(accession_file) as f:
             accessions = [line.strip() for line in f if line.strip() and not line.startswith('#')]
         
         total_count = len(accessions)
@@ -306,7 +304,7 @@ def main():
         sys.exit(1)
     
     # Process accessions
-    if os.path.isfile(accession_arg):
+    if os.path.isfile(accession_arg) or accession_arg == "-":
         # Process as accession file
         success_count, failed_count, total_count = process_accession_file(
             accession_arg, output_dir, delay

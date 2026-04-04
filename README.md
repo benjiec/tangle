@@ -55,3 +55,9 @@ python3 scripts/area/genome-list.py
 python3 scripts/area/genome-list.py -d
 python3 scripts/area/genome-list.py -n
 ```
+
+You can use this with the `ncbi-download.py` script, e.g.
+
+```
+python3 scripts/area/genome-list.py | python3 scripts/world/ncbi-download.py -
+```
