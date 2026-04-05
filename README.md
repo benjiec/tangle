@@ -11,17 +11,7 @@ There are several repositories in this project
   * `pile`: tools to work with RNAseq data, including assembly, searching, comparison, and quantification
 
 
-## Setup
-
-If another "consumer" repository depends on this repository, add the following
-to the consumer repository's `pyproject.toml` or `requirements.txt` file
-
-```
-tangle @ git+https://github.com/benjiec/tangle.git@<hash>
-```
-
-
-## Environment/Directory Setup
+## Environment Variables
 
 Point the TANGLE_WORLD environment variable to a root directory. This is where
 all tangle files are located.
