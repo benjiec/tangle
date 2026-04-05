@@ -1,8 +1,9 @@
 import os
 from pathlib import Path
+from tangle.defaults import PathDefaultsBase
 
 
-class Defaults(object):
+class Defaults(PathDefaultsBase):
 
     @staticmethod
     def world_dir():
@@ -20,7 +21,7 @@ class Defaults(object):
 
     @staticmethod
     def ncbi_downloaded_data_dir():
-        return Defaults.ncbi_downloaded_data_dir() / "ncbi_dataset/data"
+        return Defaults.ncbi_download_dir() / "ncbi_dataset/data"
 
     @staticmethod
     def ncbi_genome_dir(genome_accession):
@@ -67,3 +68,7 @@ class Defaults(object):
     @staticmethod
     def area_genome_taxon_tsv():
         return Defaults.area_metadata_dir() / "genomes.tsv"
+
+
+if __name__ == "__main__":
+    Defaults.main(Defaults)

@@ -74,3 +74,10 @@ And to fetch taxonomy metadata - note that the taxonomy files are kept in
 ```
 python3 scripts/area/genome-list.py | python3 scripts/world/ncbi-genome-metadata.py -
 ```
+
+Or to get default paths, either of the following works
+
+```
+python3 scripts/area/genome-list.py -d | python3 scripts/defaults.py --file ncbi_genome_fna -
+python3 scripts/area/genome-list.py -d | xargs python3 scripts/defaults.py ncbi_genome_fna
+```

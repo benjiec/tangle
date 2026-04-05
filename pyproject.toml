@@ -21,5 +21,5 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["tangle"]
-namespaces = false
+include = ["tangle", "scripts"]
+namespaces = true
