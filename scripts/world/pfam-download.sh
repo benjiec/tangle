@@ -9,3 +9,8 @@ if [ ! -f "$TANGLE_WORLD/tangle/pfam_go.tsv" ]; then
     curl https://current.geneontology.org/ontology/external2go/pfam2go -o /tmp/pfam_go.txt.$$
     python3 scripts/world/parse-pfam-go.py /tmp/pfam_go.txt.$$ $TANGLE_WORLD/tangle/pfam_go.tsv
 fi
+
+if [ ! -f "$TANGLE_WORLD/tangle/uniprot_pfam.tsv.gz" ]; then
+    echo "Copying UniProt to Pfam table"
+    cp assets/uniprot_pfam.tsv.gz $TANGLE_WORLD/tangle/
+fi

@@ -47,7 +47,6 @@ python3 scripts/world/kegg-download.sh
 python3 scripts/world/pfam-download.sh
 ```
 
-
 ## Area Scripts
 
 Genomes to be used for an area should be manually curated in the `genomes.csv`
