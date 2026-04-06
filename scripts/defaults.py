@@ -102,6 +102,14 @@ class Defaults(PathDefaultsBase):
     def area_detected_proteins(genome_accession):
         return Defaults.area_detected_proteins_path(genome_accession)
 
+    @staticmethod
+    def area_sequence_pfam_tsv():
+        return Defaults.area_genomics_dir() / "sequence_pfam.tsv"
+
+    @staticmethod
+    def area_sequence_ko_assigned_tsv():
+        return Defaults.area_genomics_dir() / "sequence_ko_assigned.tsv"
+
 
 if __name__ == "__main__":
     Defaults.main(Defaults)
