@@ -1,4 +1,6 @@
-# demultiplex multiple genome's faa and TSV outputs, from using genome_accession|contig in fasta, to listing genome_accesss as query and target databases
+# demultiplex multiple genome's faa and TSV outputs, from using
+# genome_accession|contig in fasta, to listing genome_accesss as query and
+# target databases
 
 import argparse
 from pathlib import Path
@@ -8,19 +10,22 @@ from tangle.detected import DetectedTable
 
 ap = argparse.ArgumentParser()
 ap.add_argument("tsv_fn")
-ap.add_argument("faa_fn")
 ap.add_argument("demuxed_tsv_fn")
-ap.add_argument("output_faa_dir")
+ap.add_argument("--pooled-target-fasta", default=None)
+ap.add_argument("--demuxed-fasta-parent-dir", default=None)
 ap.add_argument("--use-existing-target-database", action="store_true", default=False)
-ap.add_argument("--output_faa_file_name", default="proteins.faa")
+ap.add_argument("--output-fasta-filename", default="proteins.faa")
 
 args = ap.parse_args()
 
 source = CSVSource(DetectedTable, args.tsv_fn)
 rows = source.values()
 
-proteins = read_fasta_as_dict(args.faa_fn)
-proteins_by_db = {}
+if args.pooled_target_fasta:
+    protein_sequences = read_fasta_as_dict(args.pooled_target_fasta)
+    proteins_by_db = {}
+else:
+    protein_sequences = None
 
 def convert_accession(a):
     if "|" in a:
@@ -29,11 +34,13 @@ def convert_accession(a):
     return None, a
 
 for row in rows:
-    if row["target_accession"] not in proteins:
-        print(f"warning: cannot find {row['target_accession']} in {args.faa_fn}")
-        sequence = None
-    else:
-        sequence = proteins[row["target_accession"]]
+
+    sequence = None
+    if protein_sequences:
+        if row["target_accession"] not in protein_sequences:
+            print(f"warning: cannot find {row['target_accession']} in {args.pooled_target_fasta}")
+        else:
+            sequence = protein_sequences[row["target_accession"]]
 
     query_db, query_acc = convert_accession(row["query_accession"])
     if query_db:
@@ -44,12 +51,12 @@ for row in rows:
     if target_db:
         row["target_database"] = target_db
         row["target_accession"] = target_acc
-    elif args.use_existing_target_database:
+    elif protein_sequences and args.use_existing_target_database:
         target_db = row["target_database"]
-    else:
+    elif protein_sequences:
         print(f"warning: cannot determine a target_database value for {row['target_accession']}, skip writing to a fasta file")
 
-    if target_db:
+    if protein_sequences and target_db:
         if target_db not in proteins_by_db:
             proteins_by_db[target_db] = {}
         if sequence:
@@ -57,10 +64,11 @@ for row in rows:
 
 DetectedTable.write_tsv(args.demuxed_tsv_fn, rows)
 
-for db, seq_dict in proteins_by_db.items():
-    parent_parent_dir = Path(args.output_faa_dir)
-    parent_parent_dir.mkdir(exist_ok=True)
-    parent_dir = parent_parent_dir / db
-    parent_dir.mkdir(exist_ok=True)
-    fasta_fn = parent_dir / args.output_faa_file_name
-    write_fasta_from_dict(seq_dict, str(fasta_fn))
+if protein_sequences:
+    for db, seq_dict in proteins_by_db.items():
+        parent_parent_dir = Path(args.demuxed_fasta_parent_dir)
+        parent_parent_dir.mkdir(exist_ok=True)
+        parent_dir = parent_parent_dir / db
+        parent_dir.mkdir(exist_ok=True)
+        fasta_fn = parent_dir / args.output_fasta_filename
+        write_fasta_from_dict(seq_dict, str(fasta_fn))
