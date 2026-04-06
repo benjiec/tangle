@@ -56,7 +56,6 @@ class TestDemuxScript(unittest.TestCase):
             cmd = ["python3", "scripts/demux-outputs.py", str(in_tsv), str(in_faa), str(out_tsv), str(out_dir)]
 
             result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-            self.assertEqual(result.stdout, "")
 
             g1_seq = read_fasta_as_dict((out_dir / "g1") / "proteins.faa")
             g2_seq = read_fasta_as_dict((out_dir / "g2") / "proteins.faa")
@@ -107,7 +106,98 @@ class TestDemuxScript(unittest.TestCase):
             cmd = ["python3", "scripts/demux-outputs.py", str(in_tsv), str(in_faa), str(out_tsv), str(out_dir)]
 
             result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-            self.assertEqual(result.stdout, "")
+
+            self.assertEqual(((out_dir / "g1") / "proteins.faa").exists(), True)
+            self.assertEqual(((out_dir / "g2") / "proteins.faa").exists(), False)
+            self.assertEqual(((out_dir / "g3") / "proteins.faa").exists(), True)
+
+            g1_seq = read_fasta_as_dict((out_dir / "g1") / "proteins.faa")
+            g3_seq = read_fasta_as_dict((out_dir / "g3") / "proteins.faa")
+
+            self.assertEqual(g1_seq, dict(t1="A"))
+            self.assertEqual(g3_seq, dict(t5="M", t6="Q"))
+
+    def test_does_not_keep_proteins_in_fasta_if_cannot_parse_database(self):
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir = Path(temp_dir)
+            in_tsv = temp_dir / "in.tsv"
+            in_faa = temp_dir / "in.faa"
+            out_tsv = temp_dir / "out.tsv"
+            out_dir = temp_dir / "out"
+
+            rows = [
+                dict(detection_type="sequence", detection_method="hmm", batch="b1",
+                     query_database="_", query_accession="g1|q1", query_type="contig",
+                     target_database="_", target_accession="g1|t1", target_type="protein",
+                     query_start=1, query_end=2, target_start=1, target_end=2),
+                dict(detection_type="sequence", detection_method="hmm", batch="b1",
+                     query_database="_", query_accession="g3|q5", query_type="contig",
+                     target_database="g3", target_accession="t5", target_type="protein",
+                     query_start=1, query_end=2, target_start=1, target_end=2),
+                dict(detection_type="sequence", detection_method="hmm", batch="b1",
+                     query_database="_", query_accession="g3|q6", query_type="contig",
+                     target_database="_", target_accession="g3|t6", target_type="protein",
+                     query_start=1, query_end=2, target_start=1, target_end=2)
+            ]
+            DetectedTable.write_tsv(str(in_tsv), rows)
+
+            sequences = {
+                "g1|t1": "A",
+                "t5": "M",
+                "g3|t6": "Q"
+            }
+            write_fasta_from_dict(sequences, str(in_faa))
+
+            cmd = ["python3", "scripts/demux-outputs.py", str(in_tsv), str(in_faa), str(out_tsv), str(out_dir)]
+
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+
+            self.assertEqual(((out_dir / "g1") / "proteins.faa").exists(), True)
+            self.assertEqual(((out_dir / "g2") / "proteins.faa").exists(), False)
+            self.assertEqual(((out_dir / "g3") / "proteins.faa").exists(), True)
+
+            g1_seq = read_fasta_as_dict((out_dir / "g1") / "proteins.faa")
+            g3_seq = read_fasta_as_dict((out_dir / "g3") / "proteins.faa")
+
+            self.assertEqual(g1_seq, dict(t1="A"))
+            self.assertEqual(g3_seq, dict(t6="Q"))
+
+    def test_can_use_existing_target_database_values(self):
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir = Path(temp_dir)
+            in_tsv = temp_dir / "in.tsv"
+            in_faa = temp_dir / "in.faa"
+            out_tsv = temp_dir / "out.tsv"
+            out_dir = temp_dir / "out"
+
+            rows = [
+                dict(detection_type="sequence", detection_method="hmm", batch="b1",
+                     query_database="_", query_accession="g1|q1", query_type="contig",
+                     target_database="_", target_accession="g1|t1", target_type="protein",
+                     query_start=1, query_end=2, target_start=1, target_end=2),
+                dict(detection_type="sequence", detection_method="hmm", batch="b1",
+                     query_database="_", query_accession="g3|q5", query_type="contig",
+                     target_database="g3", target_accession="t5", target_type="protein",
+                     query_start=1, query_end=2, target_start=1, target_end=2),
+                dict(detection_type="sequence", detection_method="hmm", batch="b1",
+                     query_database="_", query_accession="g3|q6", query_type="contig",
+                     target_database="_", target_accession="g3|t6", target_type="protein",
+                     query_start=1, query_end=2, target_start=1, target_end=2)
+            ]
+            DetectedTable.write_tsv(str(in_tsv), rows)
+
+            sequences = {
+                "g1|t1": "A",
+                "t5": "M",
+                "g3|t6": "Q"
+            }
+            write_fasta_from_dict(sequences, str(in_faa))
+
+            cmd = ["python3", "scripts/demux-outputs.py", "--use-existing-target-database", str(in_tsv), str(in_faa), str(out_tsv), str(out_dir)]
+
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
 
             self.assertEqual(((out_dir / "g1") / "proteins.faa").exists(), True)
             self.assertEqual(((out_dir / "g2") / "proteins.faa").exists(), False)

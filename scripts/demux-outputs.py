@@ -11,6 +11,7 @@ ap.add_argument("tsv_fn")
 ap.add_argument("faa_fn")
 ap.add_argument("demuxed_tsv_fn")
 ap.add_argument("output_faa_dir")
+ap.add_argument("--use-existing-target-database", action="store_true", default=False)
 ap.add_argument("--output_faa_file_name", default="proteins.faa")
 
 args = ap.parse_args()
@@ -43,12 +44,16 @@ for row in rows:
     if target_db:
         row["target_database"] = target_db
         row["target_accession"] = target_acc
+    elif args.use_existing_target_database:
+        target_db = row["target_database"]
+    else:
+        print(f"warning: cannot determine a target_database value for {row['target_accession']}, skip writing to a fasta file")
+
+    if target_db:
         if target_db not in proteins_by_db:
             proteins_by_db[target_db] = {}
         if sequence:
             proteins_by_db[target_db][target_acc] = sequence
-    else:
-        print(f"warning: cannot determine a target_database value for {row['target_accession']}, skip writing to a fasta file")
 
 DetectedTable.write_tsv(args.demuxed_tsv_fn, rows)
 
