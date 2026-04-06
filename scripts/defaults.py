@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from tangle.defaults import PathDefaultsBase
+from tangle.defaults import PathDefaultsBase, validate_path_exists
 
 
 class Defaults(PathDefaultsBase):
@@ -27,17 +27,33 @@ class Defaults(PathDefaultsBase):
     def ncbi_genome_dir(genome_accession):
         return Defaults.ncbi_downloaded_data_dir() / genome_accession
 
+    @validate_path_exists
     @staticmethod
-    def ncbi_genome_protein_faa(genome_accession):
+    def ncbi_genome_proteins_path(genome_accession):
         return Defaults.ncbi_genome_dir(genome_accession) / "protein.faa"
 
+    @validate_path_exists
     @staticmethod
-    def ncbi_genome_gff(genome_accession):
-        return Defaults.ncbi_genome_dir(genome_accession) / "genomic.gff"
+    def ncbi_genome_proteins(genome_accession):
+        return Defaults.ncbi_genome_proteins_path(genome_accession)
 
     @staticmethod
-    def ncbi_genome_fna(genome_accession):
+    def ncbi_genome_gff_path(genome_accession):
+        return Defaults.ncbi_genome_dir(genome_accession) / "genomic.gff"
+
+    @validate_path_exists
+    @staticmethod
+    def ncbi_genome_gff(genome_accession):
+        return Defaults.ncbi_genome_gff_path(genome_accession)
+
+    @staticmethod
+    def ncbi_genome_fna_path(genome_accession):
         return Defaults.ncbi_genome_dir(genome_accession) / "genomic.fna"
+
+    @validate_path_exists
+    @staticmethod
+    def ncbi_genome_fna(genome_accession):
+        return Defaults.ncbi_genome_fna_path(genome_accession)
 
     @staticmethod
     def kegg_module_list_tsv():
@@ -68,6 +84,23 @@ class Defaults(PathDefaultsBase):
     @staticmethod
     def area_genome_taxon_tsv():
         return Defaults.area_metadata_dir() / "genomes.tsv"
+
+    @staticmethod
+    def area_genomics_dir():
+        return Defaults.area_dir() / "genomics"
+
+    @staticmethod
+    def area_protein_fragments_tsv():
+        return Defaults.area_genomics_dir() / "protein_fragments.tsv"
+
+    @staticmethod
+    def area_detected_proteins_path(genome_accession):
+        return (Defaults.area_genomics_dir() / genome_accession) / "proteins.faa"
+
+    @validate_path_exists
+    @staticmethod
+    def area_detected_proteins(genome_accession):
+        return Defaults.area_detected_proteins_path(genome_accession)
 
 
 if __name__ == "__main__":
