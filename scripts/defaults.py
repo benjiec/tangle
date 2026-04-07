@@ -90,8 +90,12 @@ class Defaults(PathDefaultsBase):
         return Defaults.area_dir() / "genomics"
 
     @staticmethod
-    def area_protein_fragments_tsv():
-        return Defaults.area_genomics_dir() / "protein_fragments.tsv"
+    def area_protein_manifest_tsv():
+        return Defaults.area_genomics_dir() / "proteins.tsv"
+
+    @staticmethod
+    def area_detected_proteins_tsv_path(genome_accession):
+        return (Defaults.area_genomics_dir() / genome_accession) / "proteins.tsv"
 
     @staticmethod
     def area_detected_proteins_path(genome_accession):
@@ -103,12 +107,12 @@ class Defaults(PathDefaultsBase):
         return Defaults.area_detected_proteins_path(genome_accession)
 
     @staticmethod
-    def area_sequence_pfam_tsv():
-        return Defaults.area_genomics_dir() / "sequence_pfam.tsv"
+    def area_protein_pfam_tsv():
+        return Defaults.area_genomics_dir() / "protein_pfam.tsv"
 
     @staticmethod
-    def area_sequence_ko_assigned_tsv():
-        return Defaults.area_genomics_dir() / "sequence_ko_assigned.tsv"
+    def area_protein_ko_assigned_tsv():
+        return Defaults.area_genomics_dir() / "protein_ko_assigned.tsv"
 
 
 if __name__ == "__main__":
