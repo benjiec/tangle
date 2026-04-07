@@ -11,6 +11,14 @@ There are several repositories in this project
   * `pile`: tools to work with RNAseq data, including assembly, searching, comparison, and quantification
 
 
+## Docker Images
+
+Download these two
+
+  * MMSeqs2 docker image: `docker pull ghcr.io/soedinglab/mmseqs2`
+  * Muscle aligner: `docker pull pegi3s/muscle`
+
+
 ## Environment Variables
 
 Point the TANGLE_WORLD environment variable to a root directory. This is where
@@ -70,4 +78,13 @@ Or to get default paths, either of the following works
 ```
 python3 scripts/area/genome-list.py -d | python3 scripts/defaults.py --file ncbi_genome_fna -
 python3 scripts/area/genome-list.py -d | xargs python3 scripts/defaults.py ncbi_genome_fna
+```
+
+Combine detected and reference FASTAs together
+
+```
+tangle-py tangle/scripts/defaults.py \
+  -m area_detected_proteins \
+  -m ncbi_genome_proteins_path \
+  GCF_002042975.1 | xargs cat > combined.faa
 ```
