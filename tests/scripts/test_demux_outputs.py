@@ -94,7 +94,7 @@ class TestDemuxScript(unittest.TestCase):
             cmd = ["python3", "scripts/demux-outputs.py",
                    str(in_tsv), str(out_tsv), "--pooled-target-fasta", str(in_faa), "--demuxed-fasta-parent-dir", str(out_dir)]
 
-            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            subprocess.run(cmd)
 
             g1_seq = read_fasta_as_dict((out_dir / "g1") / "proteins.faa")
             g2_seq = read_fasta_as_dict((out_dir / "g2") / "proteins.faa")
@@ -141,7 +141,7 @@ class TestDemuxScript(unittest.TestCase):
             cmd = ["python3", "scripts/demux-outputs.py",
                    str(in_tsv), str(out_tsv), "--pooled-target-fasta", str(in_faa), "--demuxed-fasta-parent-dir", str(out_dir)]
 
-            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            subprocess.run(cmd)
 
             self.assertEqual(((out_dir / "g1") / "proteins.faa").exists(), True)
             self.assertEqual(((out_dir / "g2") / "proteins.faa").exists(), False)
@@ -188,7 +188,7 @@ class TestDemuxScript(unittest.TestCase):
             cmd = ["python3", "scripts/demux-outputs.py",
                    str(in_tsv), str(out_tsv), "--pooled-target-fasta", str(in_faa), "--demuxed-fasta-parent-dir", str(out_dir)]
 
-            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            subprocess.run(cmd)
 
             self.assertEqual(((out_dir / "g1") / "proteins.faa").exists(), True)
             self.assertEqual(((out_dir / "g2") / "proteins.faa").exists(), False)
@@ -235,7 +235,7 @@ class TestDemuxScript(unittest.TestCase):
             cmd = ["python3", "scripts/demux-outputs.py", "--use-existing-target-database",
                    str(in_tsv), str(out_tsv), "--pooled-target-fasta", str(in_faa), "--demuxed-fasta-parent-dir", str(out_dir)]
 
-            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            subprocess.run(cmd)
 
             self.assertEqual(((out_dir / "g1") / "proteins.faa").exists(), True)
             self.assertEqual(((out_dir / "g2") / "proteins.faa").exists(), False)
@@ -246,3 +246,7 @@ class TestDemuxScript(unittest.TestCase):
 
             self.assertEqual(g1_seq, dict(t1="A"))
             self.assertEqual(g3_seq, dict(t5="M", t6="Q"))
+
+            self.assertEqual(((out_dir / "g1") / "proteins.tsv").exists(), True)
+            self.assertEqual(((out_dir / "g2") / "proteins.tsv").exists(), False)
+            self.assertEqual(((out_dir / "g3") / "proteins.tsv").exists(), True)

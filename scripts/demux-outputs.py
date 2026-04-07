@@ -10,11 +10,12 @@ from tangle.detected import DetectedTable
 
 ap = argparse.ArgumentParser()
 ap.add_argument("tsv_fn")
-ap.add_argument("demuxed_tsv_fn")
+ap.add_argument("modified_tsv_fn")
 ap.add_argument("--pooled-target-fasta", default=None)
 ap.add_argument("--demuxed-fasta-parent-dir", default=None)
 ap.add_argument("--use-existing-target-database", action="store_true", default=False)
-ap.add_argument("--output-fasta-filename", default="proteins.faa")
+ap.add_argument("--demuxed-fasta-filename", default="proteins.faa")
+ap.add_argument("--demuxed-tsv-filename", default="proteins.tsv")
 
 args = ap.parse_args()
 
@@ -62,7 +63,7 @@ for row in rows:
         if sequence:
             proteins_by_db[target_db][target_acc] = sequence
 
-DetectedTable.write_tsv(args.demuxed_tsv_fn, rows)
+DetectedTable.write_tsv(args.modified_tsv_fn, rows)
 
 if protein_sequences:
     for db, seq_dict in proteins_by_db.items():
@@ -70,5 +71,10 @@ if protein_sequences:
         parent_parent_dir.mkdir(exist_ok=True)
         parent_dir = parent_parent_dir / db
         parent_dir.mkdir(exist_ok=True)
-        fasta_fn = parent_dir / args.output_fasta_filename
+
+        fasta_fn = parent_dir / args.demuxed_fasta_filename
         write_fasta_from_dict(seq_dict, str(fasta_fn))
+
+        tsv_fn = str(parent_dir / args.demuxed_tsv_filename)
+        db_rows = [row for row in rows if row["target_database"] == db]
+        DetectedTable.write_tsv(tsv_fn, db_rows)
