@@ -90,8 +90,8 @@ class Defaults(PathDefaultsBase):
         return Defaults.area_dir() / "genomics"
 
     @staticmethod
-    def area_protein_manifest_tsv():
-        return Defaults.area_genomics_dir() / "proteins.tsv"
+    def area_sequence_manifest_tsv():
+        return Defaults.area_genomics_dir() / "sequences.tsv"
 
     @staticmethod
     def area_detected_proteins_tsv_path(genome_accession):
