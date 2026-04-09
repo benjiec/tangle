@@ -62,6 +62,7 @@ def demux_tsv(tsv_fn, fasta_fn, demuxed_parent_dir=None, keep_original=True,
         orig_fn = tsv_fn+".orig"
         shutil.copy(tsv_fn, orig_fn)
     DetectedTable.write_tsv(tsv_fn, rows)
+    print(tsv_fn)
 
     if protein_sequences:
         parent_parent_dir = Path(demuxed_parent_dir)
@@ -71,14 +72,14 @@ def demux_tsv(tsv_fn, fasta_fn, demuxed_parent_dir=None, keep_original=True,
             parent_dir = parent_parent_dir / db
             parent_dir.mkdir(exist_ok=True)
 
-            fasta_fn = parent_dir / demuxed_fasta_filename
-            write_fasta_from_dict(seq_dict, str(fasta_fn), append=True)
+            db_fasta_fn = parent_dir / demuxed_fasta_filename
+            write_fasta_from_dict(seq_dict, str(db_fasta_fn), append=True)
 
-            tsv_fn = str(parent_dir / demuxed_tsv_filename)
+            db_tsv_fn = str(parent_dir / demuxed_tsv_filename)
             db_rows = [row for row in rows if row["target_database"] == db]
-            DetectedTable.write_tsv(tsv_fn, db_rows, append=True)
+            DetectedTable.write_tsv(db_tsv_fn, db_rows, append=True)
 
-            print(tsv_fn, str(parent_dir))
+            print(db_tsv_fn, str(parent_dir))
 
 
 import argparse
