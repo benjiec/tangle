@@ -11,12 +11,12 @@ if __name__ == "__main__":
     parser.add_argument("--cluster_file_prefix", default=None)
     args = parser.parse_args()
 
-    cluster_file_prefix = args.cluster_file_prefix
-    if cluster_file_prefix is None:
-        cluster_file_prefix = args.input_fasta+"_clusters"
-
     work_dir = Path(args.input_fasta).parent.resolve()
     input_faa = Path(args.input_fasta).name
+
+    cluster_file_prefix = args.cluster_file_prefix
+    if cluster_file_prefix is None:
+        cluster_file_prefix = input_faa+"_clusters"
 
     cmd = ["docker", "run",
            "--rm",
