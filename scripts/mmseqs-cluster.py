@@ -16,6 +16,7 @@ if __name__ == "__main__":
         cluster_file_prefix = args.input_fasta+"_clusters"
 
     work_dir = Path(args.input_fasta).parent.resolve()
+    input_faa = Path(args.input_fasta).name
 
     cmd = ["docker", "run",
            "--rm",
@@ -30,7 +31,7 @@ if __name__ == "__main__":
     if args.coverage is not None:
         cmd.extend(["-c", str(args.coverage)])
 
-    cmd.extend([f"/work/{args.input_fasta}",
+    cmd.extend([f"/work/{input_faa}",
                 f"/work/{cluster_file_prefix}",
                 "/tmp"])
 
