@@ -56,10 +56,12 @@ def get_target_loci(rows):
 
 def get_best_ko_match(acc, matches):
     matches = [row for row in matches if row["query_accession"] == acc]
+    if len(matches) == 0:
+        return None
 
     # smallest is above threshold AND lowest evalue
     matches = sorted(matches, key=lambda row: (0 if row["bitscore"] > row["bitscore_threshold"] else 1, row["evalue"]))
-    return matches[0]["target_accession"], matches[0]["evalue"]
+    return matches[0]["target_accession"], 0 if matches[0]["bitscore"] > row["bitscore_threshold"] else 1, matches[0]["evalue"]
 
 
 def same_loci(a, b, buffer=100):
@@ -76,19 +78,24 @@ def filter(tsv_fn, fasta_fn, cluster_fn, matches, keep_original=True):
     clusters = load_clusters(cluster_fn)
 
     target_loci = get_target_loci(rows)
-    target_ko_eval = {acc:get_best_ko_match(acc, matches) for acc in target_loci.keys()}
+    target_ko_threshpenalty_eval = {acc:get_best_ko_match(acc, matches) for acc in target_loci.keys()}
+    target_ko_threshpenalty_eval = {k:v for k,v in target_ko_threshpenalty_eval.items() if v is not None}
 
     to_keep = []
 
     for cluster, members in clusters.items():
         # print("cluster", cluster)
 
-	# sort members by (ko, evalue), so we encounter the best match first
-        members = sorted(members, key=lambda acc: target_ko_eval[acc])
+        # filters away member not classified
+        members = [m for m in members if m in target_ko_threshpenalty_eval]
+
+	# sort members by (ko, threshold_penalty, evalue), so we encounter the best match first
+        members = sorted(members, key=lambda acc: target_ko_threshpenalty_eval[acc])
+        # print(members)
 
         to_keep_in_cluster = {}
         for member in members:
-            ko = target_ko_eval[member][0]
+            ko = target_ko_threshpenalty_eval[member][0]
             locus = target_loci[member]
 
             found_match = False
@@ -124,6 +131,7 @@ ap.add_argument("--forget-original", action="store_true", default=False)
 ap.add_argument("--fasta-filename", default="proteins.faa")
 ap.add_argument("--tsv-filename", default="proteins.tsv")
 ap.add_argument("--cluster-script", default="tangle/scripts/mmseqs-cluster.py")
+ap.add_argument("--cluster-file", default=None)
 ap.add_argument("--ko-classification-tsv", required=True)
 ap.add_argument("genome_dirs", nargs="+")
 args = ap.parse_args()
@@ -143,9 +151,16 @@ for genome_dir in args.genome_dirs:
 
     tsv_fn = str(genome_path / args.tsv_filename)
     faa_fn = str(genome_path / args.fasta_filename)
-    cluster_fn = cluster_proteins(faa_fn, args.cluster_script)
+
+    if args.cluster_file:
+        cluster_fn = args.cluster_file
+    else:
+        cluster_fn = cluster_proteins(faa_fn, args.cluster_script)
 
     matches = matches_by_db[genome_acc]
     filter(tsv_fn, faa_fn, cluster_fn, matches, not args.forget_original)
-    os.unlink(cluster_fn)
+
+    if not args.cluster_file:
+        os.unlink(cluster_fn)
+
     print(genome_dir)
