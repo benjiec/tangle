@@ -107,7 +107,7 @@ class CSVSource(LocalTableSource):
 
     def duckdb_source_str(self):
         paths = [f"'{x}'" for x in self.paths]
-        return f"read_csv_auto([{",".join(paths)}], union_by_name=TRUE, normalize_names=TRUE)"
+        return f"read_csv_auto([{','.join(paths)}], union_by_name=TRUE, normalize_names=TRUE)"
 
     def values(self, schema=None, column_filters=None, just=None):
         if schema is None:
