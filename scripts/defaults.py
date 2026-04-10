@@ -82,6 +82,14 @@ class Defaults(PathDefaultsBase):
         return Defaults.area_dir() / "genomes.csv"
 
     @staticmethod
+    def area_experiments_dir():
+        return Defaults.area_dir() / "experiments"
+
+    @staticmethod
+    def area_experiment(exp_id):
+        return Defaults.area_experiments_dir() / exp_id
+
+    @staticmethod
     def area_genome_taxon_tsv():
         return Defaults.area_metadata_dir() / "genomes.tsv"
 
