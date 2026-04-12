@@ -2,6 +2,8 @@ import os
 import re
 import csv
 import duckdb
+from decimal import Decimal
+from datetime import datetime, date, time
 from . import open_file_to_write, unique_batch
 
 
@@ -15,6 +17,31 @@ class Column(object):
         self.values = values
         self.required = required
 
+    def bigquery_type(self):
+        if self.type is int:
+            return "INT64"
+        elif self.type is float:
+            return "FLOAT64"
+        elif self.type is Decimal:
+            return "NUMERIC"
+        elif self.type is bool:
+            return "BOOL"
+        elif self.type is datetime:
+            return "DATETIME"
+        elif self.type is date:
+            return "DATE"
+        elif self.type is time:
+            return "TIME"
+        else:
+            return "STRING"
+
+    def bigquery_schema_json(self):
+        return dict(
+          name=self.name,
+          type=self.bigquery_type(),
+          mode="REQUIRED" if self.required else "NULLABLE"
+        )
+
 
 class Table(object):
 
@@ -26,6 +53,9 @@ class Table(object):
 
     def fieldnames(self):
         return [c.name for c in self.columns]
+
+    def bigquery_schema(self):
+        return [c.bigquery_schema_json() for c in self.columns]
 
     def validate(self, rows):
         errors = {}
