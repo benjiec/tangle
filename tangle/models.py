@@ -157,6 +157,8 @@ class CSVSource(LocalTableSource):
         query = f"SELECT {fields} FROM {self.table_name(schema)}{cond}"
 
         values = duckdb.execute(query).fetchdf().to_dict('records')
+        schema.duckdb_drop()
+
         if just is None:
             return values
         else:
@@ -179,3 +181,6 @@ class Schema(object):
         duckdb.execute(f"CREATE SCHEMA {self.name}")
         for source in self.table_sources:
             duckdb.execute(source.duckdb_create_table_str(self))
+
+    def duckdb_drop(self):
+        duckdb.execute(f"DROP SCHEMA IF EXISTS {self.name} CASCADE")
