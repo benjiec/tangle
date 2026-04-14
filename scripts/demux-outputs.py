@@ -4,6 +4,7 @@
 
 import shutil
 from pathlib import Path
+from tangle import unique_batch
 from tangle.sequence import read_fasta_as_dict, write_fasta_from_dict
 from tangle.models import CSVSource
 from tangle.detected import DetectedTable
@@ -17,7 +18,7 @@ def convert_accession(a):
 
 
 def demux_tsv(tsv_fn, fasta_fn, demuxed_parent_dir=None, keep_original=True,
-              demuxed_fasta_filename=None, demuxed_tsv_filename=None):
+              demuxed_fasta_filename=None, demuxed_tsv_filename=None, set_batch_to=None):
 
     if demuxed_fasta_filename is None:
         demuxed_fasta_filename = "proteins.faa"
@@ -35,6 +36,8 @@ def demux_tsv(tsv_fn, fasta_fn, demuxed_parent_dir=None, keep_original=True,
 
     for row in rows:
         sequence = None
+        if set_batch_to is not None:
+            row["batch"] = set_batch_to
 
         query_db, query_acc = convert_accession(row["query_accession"])
         if query_db:
@@ -85,6 +88,7 @@ def demux_tsv(tsv_fn, fasta_fn, demuxed_parent_dir=None, keep_original=True,
 import argparse
 ap = argparse.ArgumentParser()
 ap.add_argument("--forget-original", action="store_true", default=False)
+ap.add_argument("--set-batch", action="store_true", default=False)
 ap.add_argument("--pooled-target-fasta", default=None)
 ap.add_argument("--pooled-target-fasta-suffix", default=None)
 ap.add_argument("--demuxed-parent-dir", default=None)
@@ -101,6 +105,10 @@ if (args.pooled_target_fasta is not None or \
 if len(args.pooled_tsv) > 1 and args.demuxed_parent_dir and not args.pooled_target_fasta_suffix:
     raise Exception("If demux multiple files, requires --pooled-target-fasta-suffix")
 
+new_batch = None
+if args.set_batch:
+    new_batch = unique_batch()
+
 def get_fasta_fn(fasta_fn, tsv_fn, fasta_fn_suffix):
     if fasta_fn_suffix:
         tsv_path = Path(tsv_fn)
@@ -113,4 +121,5 @@ for tsv_fn in args.pooled_tsv:
               demuxed_parent_dir=args.demuxed_parent_dir,
               keep_original=not args.forget_original,
               demuxed_fasta_filename=args.demuxed_fasta_filename,
-              demuxed_tsv_filename=args.demuxed_tsv_filename)
+              demuxed_tsv_filename=args.demuxed_tsv_filename,
+              set_batch_to=new_batch)

@@ -319,3 +319,44 @@ class TestDemuxScript(unittest.TestCase):
             values = CSVSource(DetectedTable, str(g3_tsv)).values()
             self.assertCountEqual([(row["target_database"], row["target_accession"]) for row in values],
                                   [("g3", "t5"), ("g3", "t6")])
+
+    def test_demux_script_can_set_new_batch_value(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir = Path(temp_dir)
+            in_tsv = temp_dir / "in.tsv"
+            out_tsv = temp_dir / "out.tsv"
+
+            rows = [
+                dict(detection_type="sequence", detection_method="hmm", batch="b1",
+                     query_database="_", query_accession="g1|q1", query_type="contig",
+                     target_database="_", target_accession="g1|t1", target_type="protein",
+                     query_start=1, query_end=2, target_start=1, target_end=2),
+                dict(detection_type="sequence", detection_method="hmm", batch="b2",
+                     query_database="_", query_accession="g1|q2", query_type="contig",
+                     target_database="_", target_accession="g1|t2", target_type="protein",
+                     query_start=1, query_end=2, target_start=1, target_end=2),
+                dict(detection_type="sequence", detection_method="hmm", batch="b3",
+                     query_database="_", query_accession="g2|q3", query_type="contig",
+                     target_database="_", target_accession="g2|t3", target_type="protein",
+                     query_start=1, query_end=2, target_start=1, target_end=2),
+                dict(detection_type="sequence", detection_method="hmm", batch="b1",
+                     query_database="_", query_accession="g3|q5", query_type="contig",
+                     target_database="_", target_accession="g3|t5", target_type="protein",
+                     query_start=1, query_end=2, target_start=1, target_end=2),
+                dict(detection_type="sequence", detection_method="hmm", batch="b1",
+                     query_database="_", query_accession="g3|q6", query_type="contig",
+                     target_database="_", target_accession="g3|t6", target_type="protein",
+                     query_start=1, query_end=2, target_start=1, target_end=2)
+            ]
+            DetectedTable.write_tsv(str(in_tsv), rows)
+
+            cmd = ["python3", "scripts/demux-outputs.py", str(in_tsv), "--set-batch"]
+
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+
+            values = CSVSource(DetectedTable, str(in_tsv)).values()
+            batch_values = set(row["batch"] for row in values)
+            self.assertEqual(len(batch_values), 1)
+            self.assertEqual("b1" in batch_values, False)
+            self.assertEqual("b2" in batch_values, False)
+            self.assertEqual("b3" in batch_values, False)
