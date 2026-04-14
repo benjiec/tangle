@@ -1,14 +1,14 @@
-import json
+import shutil
 import inspect
 import importlib
-from tangle import open_file_to_read
-from tangle.models import Table
+from tangle.models import Table, CSVSource
 
 import argparse
 ap = argparse.ArgumentParser()
-ap.add_argument("module_file")
 ap.add_argument("--table-name")
-ap.add_argument("--check")
+ap.add_argument("--forget-original", action="store_true", default=False)
+ap.add_argument("module_file")
+ap.add_argument("tsv_file")
 args = ap.parse_args()
 
 table_module = importlib.import_module(args.module_file)
@@ -26,13 +26,12 @@ else:
         raise Exception(f"multiple Table subclasses found in {args.module_file}")
     table_obj = matches[0]
 
-schema_data = table_obj.bigquery_schema()
+source = CSVSource(table_obj, args.tsv_file)
+rows = source.values()
 
-if args.check:
-    with open_file_to_read(args.check) as f:
-        first_line = f.readline()
-    headers = first_line.strip('\n').split('\t')
-    if headers != [x["name"] for x in schema_data]:
-        raise Exception(f"Headers from TSV {args.check} does not match schema")
+if not args.forget_original:
+    orig_fn = args.tsv_file+".orig"
+    shutil.copy(args.tsv_file, orig_fn)
 
-print(json.dumps(schema_data, indent=2))
+print(args.tsv_file, len(rows))
+table_obj.write_tsv(args.tsv_file, rows)
