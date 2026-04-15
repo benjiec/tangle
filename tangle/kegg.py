@@ -128,7 +128,7 @@ class ModuleDefinitionFormatter(object):
             headers.append("sub_"*i+"step_option")
             headers.append("sub_"*i+"step_option_component")
         headers.append("essential")
-        headers.append("identifier")
+        headers.append("ortholog_id")
 
         with open(fn, "w") as f:
             f.write(",".join(headers)+"\n")

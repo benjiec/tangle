@@ -1,6 +1,6 @@
 tsv_files = [
   dict(filename="kegg_module_defs.csv", tablename="kegg_module_definitions", has_headers=True, delimiter=',',
-       schema="module_id:STRING,step:INT64,step_option:INT64,step_option_component:INT64,sub_step:INT64,sub_step_option:INT64,sub_step_option_component:INT64,sub_sub_step:INT64,sub_sub_step_option:INT64,sub_sub_step_option_component:INT64,essential:INT64,identifier:STRING"),
+       schema="module_id:STRING,step:INT64,step_option:INT64,step_option_component:INT64,sub_step:INT64,sub_step_option:INT64,sub_step_option_component:INT64,sub_sub_step:INT64,sub_sub_step_option:INT64,sub_sub_step_option_component:INT64,essential:INT64,ortholog_id:STRING"),
   dict(filename="kegg_modules.tsv", tablename="kegg_modules", has_headers=True, delimiter='\t',
        schema="module_id:STRING,module_name:STRING"),
   dict(filename="ko.tsv", tablename="kegg_orthologs", has_headers=True, delimiter='\t',
