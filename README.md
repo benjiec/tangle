@@ -88,3 +88,12 @@ tangle-py tangle/scripts/defaults.py \
   -m ncbi_genome_proteins_path \
   GCF_002042975.1 | xargs cat > combined.faa
 ```
+
+## Generic Scripts
+
+Extract entries from FASTA
+
+```
+echo aten_0.1.m1.10024.m1 | \
+  tangle-py tangle/scripts/fasta-emit.py `tangle-py tangle/scripts/defaults.py -m area_experiment PM32426508`/proteins.faa.gz -
+```
