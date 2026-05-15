@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from tangle.defaults import PathDefaultsBase, validate_path_exists
+from tangle.defaults import PathDefaultsBase, validate_path_exists, maybe_gzipped
 
 
 class Defaults(PathDefaultsBase):
@@ -27,7 +27,7 @@ class Defaults(PathDefaultsBase):
     def ncbi_genome_dir(genome_accession):
         return Defaults.ncbi_downloaded_data_dir() / genome_accession
 
-    @validate_path_exists
+    @maybe_gzipped
     @staticmethod
     def ncbi_genome_proteins_path(genome_accession):
         return Defaults.ncbi_genome_dir(genome_accession) / "protein.faa"
@@ -37,6 +37,7 @@ class Defaults(PathDefaultsBase):
     def ncbi_genome_proteins(genome_accession):
         return Defaults.ncbi_genome_proteins_path(genome_accession)
 
+    @maybe_gzipped
     @staticmethod
     def ncbi_genome_gff_path(genome_accession):
         return Defaults.ncbi_genome_dir(genome_accession) / "genomic.gff"
@@ -46,6 +47,7 @@ class Defaults(PathDefaultsBase):
     def ncbi_genome_gff(genome_accession):
         return Defaults.ncbi_genome_gff_path(genome_accession)
 
+    @maybe_gzipped
     @staticmethod
     def ncbi_genome_fna_path(genome_accession):
         return Defaults.ncbi_genome_dir(genome_accession) / "genomic.fna"
@@ -97,14 +99,17 @@ class Defaults(PathDefaultsBase):
     def area_genomics_dir():
         return Defaults.area_dir() / "genomics"
 
+    @maybe_gzipped
     @staticmethod
     def area_sequence_manifest_tsv():
         return Defaults.area_genomics_dir() / "sequences.tsv"
 
+    @maybe_gzipped
     @staticmethod
     def area_detected_proteins_tsv_path(genome_accession):
         return (Defaults.area_genomics_dir() / genome_accession) / "proteins.tsv"
 
+    @maybe_gzipped
     @staticmethod
     def area_detected_proteins_path(genome_accession):
         return (Defaults.area_genomics_dir() / genome_accession) / "proteins.faa"
@@ -114,10 +119,12 @@ class Defaults(PathDefaultsBase):
     def area_detected_proteins(genome_accession):
         return Defaults.area_detected_proteins_path(genome_accession)
 
+    @maybe_gzipped
     @staticmethod
     def area_protein_pfam_tsv():
         return Defaults.area_genomics_dir() / "protein_pfam.tsv"
 
+    @maybe_gzipped
     @staticmethod
     def area_protein_ko_assigned_tsv():
         return Defaults.area_genomics_dir() / "protein_ko_assigned.tsv"

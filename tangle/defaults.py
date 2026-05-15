@@ -54,3 +54,16 @@ def validate_path_exists(func):
             return result
         return
     return wrapper
+
+
+def maybe_gzipped(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        result = func(*args, **kwargs)
+        if result:
+            if Path(result).exists():
+                return result
+            if Path(result+".gz").exists():
+                return result+".gz"
+        return result
+    return wrapper
