@@ -63,7 +63,7 @@ def maybe_gzipped(func):
         if result:
             if Path(result).exists():
                 return result
-            if Path(result+".gz").exists():
-                return result+".gz"
+            if Path(str(result)+".gz").exists():
+                return str(result)+".gz"
         return result
     return wrapper
