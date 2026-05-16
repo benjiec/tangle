@@ -6,4 +6,7 @@ if [ ! -d "$TANGLE_WORLD/tangle/odb12v2/" ]; then
   curl https://data.orthodb.org/odb12v2/download/odb_data_dump/odb12v2_OG2genes.tab.gz -o $TANGLE_WORLD/tangle/odb12v2/odb12v2_OG2genes.tab.gz
   curl https://data.orthodb.org/odb12v2/download/odb_data_dump/odb12v2_OGs.tab.gz -o $TANGLE_WORLD/tangle/odb12v2/odb12v2_OGs.tab.gz
   curl https://data.orthodb.org/odb12v2/download/odb_data_dump/odb12v2_gene_xrefs.tab.gz -o $TANGLE_WORLD/tangle/odb12v2/odb12v2_gene_xrefs.tab.gz
+
+  zgrep "UniProt" $TANGLE_WORLD/tangle/odb12v2/odb12v2_gene_xrefs.tab.gz > $TANGLE_WORLD/tangle/odb12v2/odb12v2_gene_xrefs.tab.uniprot
+  gzip $TANGLE_WORLD/tangle/odb12v2/odb12v2_gene_xrefs.tab.uniprot
 fi
