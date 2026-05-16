@@ -38,11 +38,12 @@ Download files related to an NCBI genome accession
 python3 scripts/world/ncbi-download.py <accession>
 ```
 
-Download various KEGG and Pfam files
+Download various KEGG, Pfam, OrthoDB files
 
 ```
 python3 scripts/world/kegg-download.sh
 python3 scripts/world/pfam-download.sh
+python3 scripts/world/odb-download.sh
 ```
 
 ## Area Scripts
