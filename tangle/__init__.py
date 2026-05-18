@@ -21,8 +21,13 @@ def open_file_to_write(fn, mode):
     if fn == "-":
         yield sys.stdin
     else:
+        mode = mode.replace("b","")
+        mode += "t"
         is_gz = fn.endswith(".gz")
-        opener = gzip.open if is_gz else open
+        if is_gz:
+            opener = gzip.open
+        else:
+            opener = open
         with opener(fn, mode, encoding="utf-8", newline="") as f:
             yield f
 

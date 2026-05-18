@@ -39,4 +39,4 @@ query = f"""
 """
 
 rows = db.execute(query).fetchdf().to_dict('records')
-OrthoDBUniProtGroupTable.write_tsv(str(Defaults.tangle_dir() / "odb_uniprot_groups.tsv"), rows)
+OrthoDBUniProtGroupTable.write_tsv(str(Defaults.tangle_dir() / "odb_uniprot_groups.tsv.gz"), rows)
