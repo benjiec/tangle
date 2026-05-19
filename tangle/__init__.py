@@ -22,7 +22,8 @@ def open_file_to_write(fn, mode):
         yield sys.stdin
     else:
         mode = mode.replace("b","")
-        mode += "t"
+        if "t" not in mode:
+            mode += "t"
         is_gz = fn.endswith(".gz")
         if is_gz:
             opener = gzip.open
