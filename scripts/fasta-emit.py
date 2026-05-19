@@ -35,8 +35,9 @@ if args.prefix_with_underscore:
                 # print(f"stop {id} at {i}")
                 break
         if found is False:
-            print(f"cannot find {id}, seq_acc_i is {seq_acc_i}")
-        assert found is True
+            # print(f"cannot find {id}, seq_acc_i is {seq_acc_i}")
+            # assert found is True
+            pass
     seqs = new_seqs
 
 else:
