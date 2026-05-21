@@ -25,6 +25,7 @@ for i, faa_fn in enumerate(args.genome_fastas):
         sequence_accession=k,
         sequence_database=genome_accession,
         sequence_type=args.sequence_type,
+        sequence_length=len(v)
       ) for k,v in sequences.items()]
 
     ManifestTable.write_tsv(args.manifest_tsv, rows, append=append)

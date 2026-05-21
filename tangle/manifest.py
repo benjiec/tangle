@@ -5,4 +5,5 @@ ManifestTable = Table("manifest", [
     Column("sequence_database", required=True),
     Column("sequence_type", values=("contig", "transcript", "gene", "exon", "cds", "protein"), required=True),
     Column("sequence_source"),
+    Column("sequence_length"),
   ])
