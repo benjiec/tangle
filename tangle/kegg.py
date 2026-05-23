@@ -2,6 +2,22 @@ from dataclasses import dataclass
 from typing import List
 from parsimonious.grammar import Grammar
 from parsimonious.nodes import NodeVisitor
+from tangle.models import Table, Column
+
+KOThresholdTable = Table("ko_threshold", [
+    Column("model"),
+    Column("threshold", type=float),
+    Column("score_type"),
+    Column("profile_type"),
+    Column("f_measure"),
+    Column("nseq"),
+    Column("nseq_used"),
+    Column("alen", type=int),
+    Column("mlen", type=int),
+    Column("eff_nseq", type=float),
+    Column("re_pos"),
+    Column("definition"),
+])
 
 
 grammar = Grammar(

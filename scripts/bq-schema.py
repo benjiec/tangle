@@ -31,7 +31,7 @@ schema_data = table_obj.bigquery_schema()
 if args.check:
     with open_file_to_read(args.check) as f:
         first_line = f.readline()
-    headers = first_line.strip('\n').split('\t')
+    headers = first_line.strip('\r\n').split('\t')
     if headers != [x["name"] for x in schema_data]:
         raise Exception(f"Headers from TSV {args.check} does not match schema")
 

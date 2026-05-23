@@ -7,6 +7,8 @@ import argparse
 ap = argparse.ArgumentParser()
 ap.add_argument("--table-name")
 ap.add_argument("--forget-original", action="store_true", default=False)
+ap.add_argument("--set-column")
+ap.add_argument("--set-column-value")
 ap.add_argument("module_file")
 ap.add_argument("tsv_file")
 args = ap.parse_args()
@@ -28,6 +30,11 @@ else:
 
 source = CSVSource(table_obj, args.tsv_file)
 rows = source.values()
+
+if args.set_column:
+    v = args.set_column_value if args.set_column_value else ""
+    for row in rows:
+        row[args.set_column] = v
 
 if not args.forget_original:
     orig_fn = args.tsv_file+".orig"
