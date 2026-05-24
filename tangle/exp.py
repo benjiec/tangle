@@ -2,14 +2,22 @@ from .models import Table, Column
 
 GeneCountsTable = Table("gene_counts", [
     Column("experiment_id", type=str, required=True),
+    Column("genome_accession", type=str),
+    Column("transcriptome", type=str),
     Column("cohort", required=True),
     Column("timepoint", type=str, required=True),
     Column("sample", type=str, required=True),
-    Column("genome_accession", type=str),
     Column("gene_id", type=str, required=True),
     Column("count", type=float, required=True),
     Column("raw_count", type=float),
-    Column("tpm", type=float)
+    Column("tpm", type=float),
+    Column("effective_length", type=float),
+    Column("weighted_physical_length", type=float)
+  ])
+
+TranscriptGenesTable = Table("transcript_genes", [
+    Column("transcript_id", type=str, required=True),
+    Column("gene_id", type=str, required=True),
   ])
 
 DESeq2Table = Table("deseq2_tall", [
