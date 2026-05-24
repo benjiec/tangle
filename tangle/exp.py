@@ -9,7 +9,6 @@ GeneCountsTable = Table("gene_counts", [
     Column("sample", type=str, required=True),
     Column("gene_id", type=str, required=True),
     Column("count", type=float, required=True),
-    Column("raw_count", type=float),
     Column("tpm", type=float),
     Column("effective_length", type=float),
     Column("weighted_physical_length", type=float)
