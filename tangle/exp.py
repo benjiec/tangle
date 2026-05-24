@@ -15,6 +15,7 @@ GeneCountsTable = Table("gene_counts", [
   ])
 
 TranscriptGenesTable = Table("transcript_genes", [
+    Column("experiment_id", type=str, required=True),
     Column("transcript_id", type=str, required=True),
     Column("gene_id", type=str, required=True),
   ])
