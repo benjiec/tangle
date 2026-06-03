@@ -5,12 +5,13 @@ import subprocess
 import tempfile
 from pathlib import Path
 from tangle import open_file_to_read
+from tangle.cluster import cluster_name_from_repr
 from tangle.sequence import write_fasta_from_dict
 
 parser = argparse.ArgumentParser()
 parser.add_argument("mmseqs_all_seq_file")
-parser.add_argument("cluster_name")
 parser.add_argument("output_file")
+parser.add_argument("cluster_name")
 args = parser.parse_args()
 
 last_line_is_sequence = False
@@ -26,9 +27,9 @@ with open_file_to_read(args.mmseqs_all_seq_file) as f:
             if last_line_is_sequence:  # this line may be a new cluster name or just a member
                 last_accession = line[1:]
             else:  # last accession is a cluster name
-                if last_accession == args.cluster_name:  # found the cluster
+                if last_accession and cluster_name_from_repr(last_accession) == args.cluster_name:  # found the cluster
                     target_cluster = {}
-                    cluster_name = last_accession
+                    cluster_name = args.cluster_name
                 elif cluster_name:  # just finished the target cluster
                     break
                 last_accession = line[1:]

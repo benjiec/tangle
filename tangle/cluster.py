@@ -1,3 +1,4 @@
+import hashlib
 from .models import Table, Column
 
 ClusterTable = Table("cluster", [
@@ -9,3 +10,7 @@ ClusterTable = Table("cluster", [
     Column("member_database", required=True),
     Column("member_accession", required=True)
   ])
+
+
+def cluster_name_from_repr(repr):
+    return str(hashlib.sha1(repr.encode()).hexdigest())[:10]

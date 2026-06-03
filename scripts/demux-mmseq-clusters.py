@@ -1,5 +1,5 @@
 from tangle import open_file_to_read, unique_batch
-from tangle.cluster import ClusterTable
+from tangle.cluster import ClusterTable, cluster_name_from_repr
 
 
 def convert_accession(a):
@@ -19,7 +19,7 @@ def demux_tsv(cluster_output, clustering_description, cluster_type, cluster_tsv,
             rows.append(dict(
                 batch=batch,
                 clustering_description=clustering_description,
-                cluster_name=repr,
+                cluster_name=cluster_name_from_repr(repr),
                 cluster_type=cluster_type,
                 member_database=db,
                 member_accession=acc,
