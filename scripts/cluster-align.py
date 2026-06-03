@@ -37,6 +37,8 @@ with open_file_to_read(args.mmseqs_all_seq_file) as f:
         else:
             assert last_line_is_sequence is False
             if cluster_name:
+                if line[-1] == "*":
+                    line = line[:-1]
                 target_cluster[last_accession] = line
             last_line_is_sequence = True
 
