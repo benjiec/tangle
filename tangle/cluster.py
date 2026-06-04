@@ -12,5 +12,6 @@ ClusterTable = Table("cluster", [
   ])
 
 
-def cluster_name_from_repr(repr):
-    return str(hashlib.sha1(repr.encode()).hexdigest())[:10]
+def cluster_name_from_repr(repr, desc, type, parameters):
+    input = f"{desc}|{type}|{parameters}|{repr}"
+    return str(hashlib.sha1(input.encode()).hexdigest())[:10]

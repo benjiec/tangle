@@ -19,7 +19,7 @@ def demux_tsv(cluster_output, clustering_description, cluster_type, cluster_tsv,
             rows.append(dict(
                 batch=batch,
                 clustering_description=clustering_description,
-                cluster_name=cluster_name_from_repr(repr),
+                cluster_name=cluster_name_from_repr(repr, clustering_description, cluster_type, parameters),
                 cluster_type=cluster_type,
                 member_database=db,
                 member_accession=acc,
@@ -31,8 +31,8 @@ def demux_tsv(cluster_output, clustering_description, cluster_type, cluster_tsv,
 
 import argparse
 ap = argparse.ArgumentParser()
-ap.add_argument("--cluster-type", required=True)
 ap.add_argument("--clustering-description", required=True)
+ap.add_argument("--cluster-type", required=True)
 ap.add_argument("--parameters")
 ap.add_argument("cluster_output")
 ap.add_argument("cluster_tsv")
