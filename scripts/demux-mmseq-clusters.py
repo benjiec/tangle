@@ -9,13 +9,15 @@ def convert_accession(a):
     return None, a
 
 
-def demux_tsv(cluster_output, clustering_description, cluster_type, cluster_tsv, append, parameters):
+def demux_tsv(cluster_output, clustering_description, cluster_type, cluster_tsv, append, parameters, member_db):
     rows = []
     batch = unique_batch()
     with open_file_to_read(cluster_output) as f:
         for line in f:
             repr, member = line.strip().split("\t")
             db, acc = convert_accession(member)
+            if not db and member_db:
+                db = member_db
             rows.append(dict(
                 batch=batch,
                 clustering_description=clustering_description,
@@ -31,6 +33,7 @@ def demux_tsv(cluster_output, clustering_description, cluster_type, cluster_tsv,
 
 import argparse
 ap = argparse.ArgumentParser()
+ap.add_argument("--member-database", default=None)
 ap.add_argument("--clustering-description", required=True)
 ap.add_argument("--cluster-type", required=True)
 ap.add_argument("--parameters")
@@ -45,5 +48,6 @@ demux_tsv(
     args.cluster_type,
     args.cluster_tsv,
     args.append,
-    args.parameters
+    args.parameters,
+    args.member_database
 )
