@@ -15,7 +15,7 @@ class CuratedProtein(object):
 
 
     def sequence_with_leader(self):
-
+        # 3-frame translation logic is in needle though..., move that to here?
 
     def genomic_locus_with_leader(self):
 
