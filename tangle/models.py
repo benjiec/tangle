@@ -126,26 +126,40 @@ class LocalTableSource(object):
         return f"{schema.name}.{self.table.name}"
 
     def duckdb_create_table_str(self, schema):
-        return f"CREATE TABLE {self.table_name(schema)} AS SELECT * FROM {self.duckdb_source_str()}"
+        return f"CREATE TABLE {self.table_name(schema)} AS SELECT * FROM {self.duckdb_source_str()}{self.duckdb_where_str()}"
+
+    def duckdb_where_str(self):
+        return ""
 
 
 class CSVSource(LocalTableSource):
 
-    def __init__(self, table, *paths):
+    def __init__(self, table, *paths, load_filters=None):
         super(CSVSource, self).__init__(table)
         self.paths = paths
+        self.load_filters = load_filters
 
     def duckdb_source_str(self):
         paths = [f"'{x}'" for x in self.paths]
         return f"read_csv_auto([{','.join(paths)}], union_by_name=TRUE, normalize_names=TRUE)"
 
+    def duckdb_where_str(self):
+        if self.load_filters:
+            return f" WHERE {' AND '.join(self.load_filters)}"
+        return ""
+
     def values(self, schema=None, column_filters=None, just=None):
+        drop_schema = False
         if schema is None:
             schema = Schema('__temp__'+unique_batch())
-            schema.add_table(self)
+            source = self
+            if column_filters:
+                source = CSVSource(self.table, *self.paths, load_filters=column_filters)
+            schema.add_table(source)
             schema.duckdb_load()
+            drop_schema = True
 
-        if column_filters:
+        if column_filters and not drop_schema:
             cond = f" WHERE {' AND '.join(column_filters)}"
         else:
             cond = ""
@@ -157,7 +171,8 @@ class CSVSource(LocalTableSource):
         query = f"SELECT {fields} FROM {self.table_name(schema)}{cond}"
 
         values = duckdb.execute(query).fetchdf().to_dict('records')
-        schema.duckdb_drop()
+        if drop_schema:
+            schema.duckdb_drop()
 
         if just is None:
             return values

@@ -121,6 +121,25 @@ class TestLoadTSVs(unittest.TestCase):
             os.remove(tmpf1)
             os.remove(tmpf2)
 
+    def test_loads_tsv_with_filters_into_duckdb(self):
+        with tempfile.TemporaryDirectory() as tmpd:
+            tmpf = os.path.join(tmpd, "test.tsv")
+
+            table = Table("test", [Column("a"), Column("b")])
+            table.write_tsv(tmpf, [dict(a=1,b=2), dict(a=3,b=4)])
+
+            source = CSVSource(table, tmpf, load_filters=["b<3"])
+            schema = Schema("test_schema")
+            schema.add_table(source)
+            schema.duckdb_load()
+
+            con = duckdb.connect(":default:")
+            sql = "SELECT * FROM test_schema.test"
+            data = con.sql(sql).fetchall()
+            self.assertEqual(data, [(1,2)])
+            schema.duckdb_drop()
+            os.remove(tmpf)
+
 
 class TestValidation(unittest.TestCase):
     

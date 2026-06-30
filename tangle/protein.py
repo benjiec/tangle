@@ -5,13 +5,15 @@ from dataclasses import dataclass
 from io import StringIO
 from typing import Optional
 
+import duckdb
 from Bio import AlignIO
 from Bio.Seq import Seq
 
 from .defaults import Defaults
 from .detected import DetectedTable
 from .manifest import ManifestTable
-from .models import CSVSource
+from .models import CSVSource, Schema
+from . import unique_batch
 from .sequence import read_fasta_as_dict, extract_subsequence_strand_sensitive
 
 
@@ -20,10 +22,13 @@ SEQUENCE_SOURCE_NCBI = "ncbi"
 
 SEQUENCE_TYPE_PROTEIN = "protein"
 GFF_TYPE_CDS = "CDS"
+GFF_TYPE_GENE = "gene"
 GFF_TYPE_MRNA = "mRNA"
 GFF_TYPE_TRANSCRIPT = "transcript"
 GFF_TYPE_START_CODON = "start_codon"
 GFF_TYPE_STOP_CODON = "stop_codon"
+
+_DUCKDB_TABLE_CACHE = {}
 
 
 def _existing_path(path):
@@ -34,10 +39,41 @@ def _existing_path(path):
     return str(path)
 
 
-def _rows_from_table(table, path):
+def _sql_string(value):
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def _file_cache_key(table, path):
     if path is None or not os.path.exists(path):
+        return None
+    path = str(path)
+    stat = os.stat(path)
+    return (table.name, path, stat.st_mtime_ns, stat.st_size)
+
+
+def _cached_table_name(table, path):
+    key = _file_cache_key(table, path)
+    if key is None:
+        return None
+    if key not in _DUCKDB_TABLE_CACHE:
+        schema = Schema("__curated_protein__" + unique_batch())
+        schema.add_table(CSVSource(table, str(path)))
+        schema.duckdb_load()
+        _DUCKDB_TABLE_CACHE[key] = (schema.name, table.name)
+    schema_name, table_name = _DUCKDB_TABLE_CACHE[key]
+    return f"{schema_name}.{table_name}"
+
+
+def _rows_from_table(table, path, column_filters=None):
+    table_name = _cached_table_name(table, path)
+    if table_name is None:
         return []
-    return CSVSource(table, str(path)).values()
+    if column_filters:
+        cond = f" WHERE {' AND '.join(column_filters)}"
+    else:
+        cond = ""
+    query = f"SELECT * FROM {table_name}{cond}"
+    return duckdb.execute(query).fetchdf().to_dict("records")
 
 
 def _relative_pos(locus_start, locus_end, genomic_pos):
@@ -67,6 +103,22 @@ def _parse_gff_attributes(raw):
             key, value = part, ""
         attrs[key] = value
     return attrs
+
+
+def _parse_gff_line(line):
+    if not line.strip() or line.startswith("#"):
+        return None
+    parts = line.rstrip("\n").split("\t")
+    if len(parts) != 9:
+        return None
+    return dict(
+        seqid=parts[0],
+        type=parts[2],
+        start=int(parts[3]),
+        end=int(parts[4]),
+        strand=parts[6],
+        attrs=_parse_gff_attributes(parts[8]),
+    )
 
 
 def _gff_attr_values(attrs, key):
@@ -114,6 +166,12 @@ class GenomicLocus:
 
 class CuratedProtein(object):
 
+    @staticmethod
+    def clear_cache():
+        for schema_name, _table_name in _DUCKDB_TABLE_CACHE.values():
+            duckdb.execute(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE")
+        _DUCKDB_TABLE_CACHE.clear()
+
     def __init__(self, protein_accession, genome_accession):
         self.protein_accession = protein_accession
         self.genome_accession = genome_accession
@@ -127,13 +185,11 @@ class CuratedProtein(object):
     @property
     def manifest_entry(self):
         if self._manifest_entry is None:
-            rows = _rows_from_table(ManifestTable, Defaults.area_sequence_manifest_tsv())
-            matches = [
-                row for row in rows
-                if row["sequence_accession"] == self.protein_accession
-                and row["sequence_database"] == self.genome_accession
-                and row["sequence_type"] == SEQUENCE_TYPE_PROTEIN
-            ]
+            matches = _rows_from_table(ManifestTable, Defaults.area_sequence_manifest_tsv(), column_filters=[
+                f"sequence_accession = {_sql_string(self.protein_accession)}",
+                f"sequence_database = {_sql_string(self.genome_accession)}",
+                f"sequence_type = {_sql_string(SEQUENCE_TYPE_PROTEIN)}",
+            ])
             if not matches:
                 raise ValueError(f"Cannot find protein {self.protein_accession} from {self.genome_accession} in manifest")
             if len(matches) > 1:
@@ -167,12 +223,14 @@ class CuratedProtein(object):
 
     def _detected_protein_rows(self):
         if self._detected_rows is None:
-            rows = _rows_from_table(DetectedTable, Defaults.area_detected_proteins_tsv_path(self.genome_accession))
-            self._detected_rows = [
-                row for row in rows
-                if row["target_accession"] == self.protein_accession
-                and row["target_database"] == self.genome_accession
-            ]
+            self._detected_rows = _rows_from_table(
+                DetectedTable,
+                Defaults.area_detected_proteins_tsv_path(self.genome_accession),
+                column_filters=[
+                    f"target_accession = {_sql_string(self.protein_accession)}",
+                    f"target_database = {_sql_string(self.genome_accession)}",
+                ]
+            )
         return self._detected_rows
 
     def _detected_rows_in_protein_order(self):
@@ -229,26 +287,23 @@ class CuratedProtein(object):
             start_codon_interval_1b=start_codon,
         )
 
-    def _gff_rows(self):
-        rows = []
+    def _iter_gff_rows(self):
         gff_path = _existing_path(Defaults.ncbi_genome_gff(self.genome_accession))
         with open(gff_path, "rt", encoding="utf-8") as f:
             for line in f:
-                if not line.strip() or line.startswith("#"):
-                    continue
-                parts = line.rstrip("\n").split("\t")
-                if len(parts) != 9:
-                    continue
-                attrs = _parse_gff_attributes(parts[8])
-                rows.append(dict(
-                    seqid=parts[0],
-                    type=parts[2],
-                    start=int(parts[3]),
-                    end=int(parts[4]),
-                    strand=parts[6],
-                    attrs=attrs,
-                ))
-        return rows
+                row = _parse_gff_line(line)
+                if row is not None:
+                    yield row
+
+    def _gff_gene_blocks(self):
+        block = []
+        for row in self._iter_gff_rows():
+            if row["type"] == GFF_TYPE_GENE and block:
+                yield block
+                block = []
+            block.append(row)
+        if block:
+            yield block
 
     def _gff_row_matches_protein(self, row):
         attrs = row["attrs"]
@@ -257,11 +312,60 @@ class CuratedProtein(object):
             candidates.extend(_gff_attr_values(attrs, key))
         return self.protein_accession in candidates
 
-    def _ncbi_locus(self):
-        gff_rows = self._gff_rows()
-        cds_rows = [row for row in gff_rows if row["type"] == GFF_TYPE_CDS and self._gff_row_matches_protein(row)]
+    def _gff_rows_for_protein_from_block(self):
+        for block in self._gff_gene_blocks():
+            gene_ids = {
+                row["attrs"].get("ID") for row in block
+                if row["type"] == GFF_TYPE_GENE and row["attrs"].get("ID")
+            }
+            if not gene_ids:
+                continue
+            transcript_rows = [
+                row for row in block
+                if row["type"] in (GFF_TYPE_MRNA, GFF_TYPE_TRANSCRIPT)
+            ]
+            if not transcript_rows:
+                continue
+            if not any(set(_gff_attr_values(row["attrs"], "Parent")) & gene_ids for row in transcript_rows):
+                continue
+            if any(row["type"] == GFF_TYPE_CDS and self._gff_row_matches_protein(row) for row in block):
+                return block
+        return None
+
+    def _gff_rows_for_protein_by_two_pass_scan(self):
+        cds_rows = [
+            row for row in self._iter_gff_rows()
+            if row["type"] == GFF_TYPE_CDS and self._gff_row_matches_protein(row)
+        ]
         if not cds_rows:
-            raise ValueError(f"Cannot find CDS rows for protein {self.protein_accession}")
+            return None
+        parent_ids = set()
+        for row in cds_rows:
+            for parent_id in _gff_attr_values(row["attrs"], "Parent"):
+                parent_ids.add(parent_id)
+
+        context_rows = []
+        for row in self._iter_gff_rows():
+            if row in cds_rows:
+                context_rows.append(row)
+            elif row["type"] in (GFF_TYPE_MRNA, GFF_TYPE_TRANSCRIPT) and row["attrs"].get("ID") in parent_ids:
+                context_rows.append(row)
+            elif row["type"] in (GFF_TYPE_START_CODON, GFF_TYPE_STOP_CODON) and set(_gff_attr_values(row["attrs"], "Parent")) & parent_ids:
+                context_rows.append(row)
+        return context_rows
+
+    def _gff_rows_for_protein(self):
+        rows = self._gff_rows_for_protein_from_block()
+        if rows is not None:
+            return rows
+        rows = self._gff_rows_for_protein_by_two_pass_scan()
+        if rows is not None:
+            return rows
+        raise ValueError(f"Cannot find CDS rows for protein {self.protein_accession}")
+
+    def _ncbi_locus(self):
+        gff_rows = self._gff_rows_for_protein()
+        cds_rows = [row for row in gff_rows if row["type"] == GFF_TYPE_CDS and self._gff_row_matches_protein(row)]
 
         parent_ids = set()
         for row in cds_rows:
@@ -378,12 +482,10 @@ class CuratedProtein(object):
         return self._hmm_detected_locus(leader_prefix_len=len(self._leader_prefix()))
 
     def _detected_rows_for_query(self, path):
-        rows = _rows_from_table(DetectedTable, path)
-        return [
-            row for row in rows
-            if row["query_accession"] == self.protein_accession
-            and row["query_database"] == self.genome_accession
-        ]
+        return _rows_from_table(DetectedTable, path, column_filters=[
+            f"query_accession = {_sql_string(self.protein_accession)}",
+            f"query_database = {_sql_string(self.genome_accession)}",
+        ])
 
     def detected_pfam(self):
         return self._detected_rows_for_query(Defaults.area_protein_pfam_tsv())

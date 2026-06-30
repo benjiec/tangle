@@ -11,6 +11,7 @@ from Bio.SeqRecord import SeqRecord
 
 from tangle.detected import DetectedTable
 from tangle.manifest import ManifestTable
+from tangle import protein as protein_module
 from tangle.protein import (
     CuratedProtein,
     ProteinHMMAlignment,
@@ -80,9 +81,11 @@ class DefaultsFixture(object):
 class TestCuratedProtein(unittest.TestCase):
 
     def setUp(self):
+        CuratedProtein.clear_cache()
         self.fx = DefaultsFixture(self)
 
     def tearDown(self):
+        CuratedProtein.clear_cache()
         self.fx.cleanup()
 
     def manifest_row(self, protein_accession, genome_accession, source):
@@ -195,11 +198,13 @@ class TestCuratedProtein(unittest.TestCase):
         self.fx.write_ncbi_proteins("g1", {"pncbi": "MGP"})
         self.fx.write_genomic_fasta("g1", {"ctg1": "AAACCCGGGTTTAAACCCGGGTTTAAA"})
         self.fx.write_gff("g1", "\n".join([
-            "ctg1\tsrc\tmRNA\t4\t24\t.\t+\t.\tID=tx1",
+            "ctg1\tsrc\tgene\t4\t24\t.\t+\t.\tID=gene1",
+            "ctg1\tsrc\tmRNA\t4\t24\t.\t+\t.\tID=tx1;Parent=gene1",
             "ctg1\tsrc\tCDS\t10\t15\t.\t+\t0\tID=cds1;Parent=tx1;protein_id=pncbi",
             "ctg1\tsrc\tCDS\t19\t21\t.\t+\t0\tID=cds2;Parent=tx1;protein_id=pncbi",
             "ctg1\tsrc\tstart_codon\t10\t12\t.\t+\t0\tParent=tx1",
             "ctg1\tsrc\tstop_codon\t22\t24\t.\t+\t0\tParent=tx1",
+            "ctg1\tsrc\tgene\t25\t27\t.\t+\t.\tID=gene2",
             "",
         ]))
 
@@ -213,6 +218,29 @@ class TestCuratedProtein(unittest.TestCase):
         self.assertEqual(locus.stop_codon_position_1b(), 19)
         self.assertEqual(locus.dss_positions_1b(), [12])
         self.assertEqual(locus.ass_positions_1b(), [16])
+
+    def test_ncbi_locus_falls_back_to_two_pass_gff_scan_if_rows_not_grouped_by_gene(self):
+        self.fx.write_manifest([self.manifest_row("pncbi", "g1", SEQUENCE_SOURCE_NCBI)])
+        self.fx.write_ncbi_proteins("g1", {"pncbi": "MGP"})
+        self.fx.write_genomic_fasta("g1", {"ctg1": "AAACCCGGGTTTAAACCCGGGTTTAAA"})
+        self.fx.write_gff("g1", "\n".join([
+            "ctg1\tsrc\tgene\t1\t3\t.\t+\t.\tID=gene_other",
+            "ctg1\tsrc\tmRNA\t4\t24\t.\t+\t.\tID=tx1",
+            "ctg1\tsrc\tCDS\t10\t15\t.\t+\t0\tID=cds1;Parent=tx1;protein_id=pncbi",
+            "ctg1\tsrc\tgene\t25\t27\t.\t+\t.\tID=gene_late",
+            "ctg1\tsrc\tCDS\t19\t21\t.\t+\t0\tID=cds2;Parent=tx1;protein_id=pncbi",
+            "ctg1\tsrc\tstart_codon\t10\t12\t.\t+\t0\tParent=tx1",
+            "ctg1\tsrc\tstop_codon\t22\t24\t.\t+\t0\tParent=tx1",
+            "",
+        ]))
+
+        protein = CuratedProtein("pncbi", "g1")
+        locus = protein.genomic_locus()
+
+        self.assertEqual(locus.sequence(), "CCCGGGTTTAAACCCGGGTTT")
+        self.assertEqual(locus.cds_intervals_1b, [(7, 12), (16, 18)])
+        self.assertEqual(locus.start_codon_position_1b(), 7)
+        self.assertEqual(locus.stop_codon_position_1b(), 19)
 
     def test_ncbi_reverse_strand_sequence_and_locus_from_gff(self):
         self.fx.write_manifest([self.manifest_row("pncbi", "g1", SEQUENCE_SOURCE_NCBI)])
@@ -267,6 +295,38 @@ class TestCuratedProtein(unittest.TestCase):
 
         self.assertEqual([row["target_accession"] for row in protein.detected_pfam()], ["PF1"])
         self.assertEqual([row["target_accession"] for row in protein.detected_ko()], ["K00001"])
+
+    def test_reuses_loaded_duckdb_tables_across_curated_proteins(self):
+        self.fx.write_manifest([
+            self.manifest_row("p1", "g1", SEQUENCE_SOURCE_HMM_DETECTED),
+            self.manifest_row("p2", "g1", SEQUENCE_SOURCE_NCBI),
+        ])
+        pfam_rows = [
+            dict(detection_type="sequence", detection_method="hmm", batch="b1",
+                 query_accession="p1", query_database="g1", query_type="protein",
+                 target_accession="PF1", target_database="Pfam", target_type="protein",
+                 query_start=1, query_end=10, target_start=1, target_end=10),
+            dict(detection_type="sequence", detection_method="hmm", batch="b1",
+                 query_accession="p2", query_database="g1", query_type="protein",
+                 target_accession="PF2", target_database="Pfam", target_type="protein",
+                 query_start=1, query_end=10, target_start=1, target_end=10),
+        ]
+        DetectedTable.write_tsv(str(self.fx.area_genomics / "protein_pfam.tsv"), pfam_rows)
+
+        original_duckdb_load = protein_module.Schema.duckdb_load
+        loaded_schemas = []
+
+        def record_load(schema):
+            loaded_schemas.append(schema.name)
+            return original_duckdb_load(schema)
+
+        with patch.object(protein_module.Schema, "duckdb_load", autospec=True, side_effect=record_load):
+            self.assertEqual(CuratedProtein("p1", "g1").sequence_source, SEQUENCE_SOURCE_HMM_DETECTED)
+            self.assertEqual(CuratedProtein("p2", "g1").sequence_source, SEQUENCE_SOURCE_NCBI)
+            self.assertEqual([row["target_accession"] for row in CuratedProtein("p1", "g1").detected_pfam()], ["PF1"])
+            self.assertEqual([row["target_accession"] for row in CuratedProtein("p2", "g1").detected_pfam()], ["PF2"])
+
+        self.assertEqual(len(loaded_schemas), 2)
 
     def test_hmm_align_runs_hmmalign_and_returns_alignment(self):
         self.fx.write_manifest([self.manifest_row("p1", "g1", SEQUENCE_SOURCE_HMM_DETECTED)])
