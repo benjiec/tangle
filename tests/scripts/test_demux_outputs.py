@@ -41,7 +41,7 @@ class TestDemuxScript(unittest.TestCase):
             ]
             DetectedTable.write_tsv(str(in_tsv), rows)
 
-            cmd = ["python3", "scripts/demux-outputs.py", str(in_tsv)]
+            cmd = ["python3", "scripts/demux-detected.py", str(in_tsv)]
 
             result = subprocess.run(cmd, check=True, capture_output=True, text=True)
 
@@ -91,7 +91,7 @@ class TestDemuxScript(unittest.TestCase):
             }
             write_fasta_from_dict(sequences, str(in_faa))
 
-            cmd = ["python3", "scripts/demux-outputs.py", str(in_tsv),
+            cmd = ["python3", "scripts/demux-detected.py", str(in_tsv),
                    "--pooled-target-fasta", str(in_faa), "--demuxed-parent-dir", str(out_dir)]
 
             subprocess.run(cmd)
@@ -138,7 +138,7 @@ class TestDemuxScript(unittest.TestCase):
             }
             write_fasta_from_dict(sequences, str(in_faa))
 
-            cmd = ["python3", "scripts/demux-outputs.py", str(in_tsv),
+            cmd = ["python3", "scripts/demux-detected.py", str(in_tsv),
                    "--pooled-target-fasta", str(in_faa), "--demuxed-parent-dir", str(out_dir)]
 
             subprocess.run(cmd)
@@ -185,7 +185,7 @@ class TestDemuxScript(unittest.TestCase):
             }
             write_fasta_from_dict(sequences, str(in_faa))
 
-            cmd = ["python3", "scripts/demux-outputs.py", str(in_tsv),
+            cmd = ["python3", "scripts/demux-detected.py", str(in_tsv),
                    "--pooled-target-fasta", str(in_faa), "--demuxed-parent-dir", str(out_dir)]
 
             subprocess.run(cmd)
@@ -231,7 +231,7 @@ class TestDemuxScript(unittest.TestCase):
             DetectedTable.write_tsv(str(in1_tsv), rows[0:2])
             DetectedTable.write_tsv(str(in2_tsv), rows[2:])
 
-            cmd = ["python3", "scripts/demux-outputs.py", str(in1_tsv), str(in2_tsv)]
+            cmd = ["python3", "scripts/demux-detected.py", str(in1_tsv), str(in2_tsv)]
 
             result = subprocess.run(cmd, check=True, capture_output=True, text=True)
 
@@ -291,7 +291,7 @@ class TestDemuxScript(unittest.TestCase):
             }
             write_fasta_from_dict(sequences, str(in2_faa))
 
-            cmd = ["python3", "scripts/demux-outputs.py", str(in1_tsv), str(in2_tsv),
+            cmd = ["python3", "scripts/demux-detected.py", str(in1_tsv), str(in2_tsv),
                    "--pooled-target-fasta-suffix", ".faa", "--demuxed-parent-dir", str(out_dir)]
 
             subprocess.run(cmd)
@@ -350,7 +350,7 @@ class TestDemuxScript(unittest.TestCase):
             ]
             DetectedTable.write_tsv(str(in_tsv), rows)
 
-            cmd = ["python3", "scripts/demux-outputs.py", str(in_tsv), "--set-batch"]
+            cmd = ["python3", "scripts/demux-detected.py", str(in_tsv), "--set-batch"]
 
             result = subprocess.run(cmd, check=True, capture_output=True, text=True)
 

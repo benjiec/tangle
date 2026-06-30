@@ -1,5 +1,6 @@
 from . import open_file_to_read, open_file_to_write
 from Bio.Seq import Seq
+from typing import Optional
 
 
 def read_fasta_as_dict(path, preserve_full_accession=False):
