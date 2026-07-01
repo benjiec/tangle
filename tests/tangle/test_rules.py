@@ -84,6 +84,16 @@ class RulesFixture(DefaultsFixture):
             mrna = "ctg1\tsrc\tmRNA\t1\t90\t.\t-\t.\tID=tx1"
         self.write_gff(genome_accession, "\n".join([mrna] + cds_rows + [""]))
 
+    def write_single_exon_gene(self, protein_accession, genome_accession):
+        self.write_manifest([self.manifest_row(protein_accession, genome_accession)])
+        self.write_ncbi_proteins(genome_accession, {protein_accession: "MGP"})
+        self.write_genomic_fasta(genome_accession, {"ctg1": "A" * 30})
+        self.write_gff(genome_accession, "\n".join([
+            "ctg1\tsrc\tmRNA\t1\t30\t.\t+\t.\tID=tx1",
+            "ctg1\tsrc\tCDS\t1\t30\t.\t+\t0\tID=cds1;Parent=tx1;protein_id=%s" % protein_accession,
+            "",
+        ]))
+
 
 class TestRules(unittest.TestCase):
 
@@ -249,6 +259,43 @@ class TestRules(unittest.TestCase):
 
         self.assertEqual(rows[0]["pass all"], RULE_TRUE)
 
+    def test_tf_motifs_in_intron_without_number_matches_any_intron(self):
+        self.fx.write_three_exon_gene("p1", "g1", "+")
+        gimme_output = "\n".join([
+            "sequence start end feature score strand",
+            "seq0 12 17 GM.5.0.Rel.0001 8.0 +",
+            "seq0 25 30 GM.5.0.bZIP.0001 8.0 -",
+            "",
+        ])
+
+        with patch("tangle.rules.subprocess.run", return_value=CompletedProcess([], 0, stdout=gimme_output, stderr="")):
+            with tempfile.TemporaryDirectory() as tmpd:
+                rows = Rules(
+                    TFMotifs.has_within(20, "GM.5.0.Rel", "GM.5.0.bZIP").in_intron()
+                ).check([("p1", "g1")], os.path.join(tmpd, "rules.tsv"))
+
+        self.assertEqual(
+            rows[0]["TFMotifs.has_within(20, 'GM.5.0.Rel', 'GM.5.0.bZIP', min_score_threshold=8).in_intron()"],
+            RULE_TRUE,
+        )
+
+    def test_tf_motifs_in_intron_without_number_is_false_for_single_exon_gene(self):
+        self.fx.write_single_exon_gene("p1", "g1")
+        gimme_output = "\n".join([
+            "sequence start end feature score strand",
+            "seq0 2 6 GM.5.0.Rel.0001 8.0 +",
+            "seq0 8 12 GM.5.0.bZIP.0001 8.0 -",
+            "",
+        ])
+
+        with patch("tangle.rules.subprocess.run", return_value=CompletedProcess([], 0, stdout=gimme_output, stderr="")):
+            with tempfile.TemporaryDirectory() as tmpd:
+                rows = Rules(
+                    TFMotifs.has_within(20, "GM.5.0.Rel", "GM.5.0.bZIP").in_intron()
+                ).check([("p1", "g1")], os.path.join(tmpd, "rules.tsv"))
+
+        self.assertEqual(rows[0]["pass all"], RULE_FALSE)
+
     def test_tf_motifs_return_maybe_when_no_pair_above_default_threshold(self):
         self.fx.write_three_exon_gene("p1", "g1", "+")
         gimme_output = "\n".join([
@@ -282,6 +329,122 @@ class TestRules(unittest.TestCase):
                 ).check([("p1", "g1")], os.path.join(tmpd, "rules.tsv"))
 
         self.assertEqual(rows[0]["pass all"], RULE_MAYBE)
+
+    def test_tf_motifs_without_scope_can_match_in_any_intron_or_exon(self):
+        self.fx.write_three_exon_gene("p1", "g1", "+")
+        gimme_output = "\n".join([
+            "sequence start end feature score strand",
+            "seq0 12 17 GM.5.0.Rel.0001 8.0 +",
+            "seq0 25 30 GM.5.0.bZIP.0001 8.0 -",
+            "",
+        ])
+
+        with patch("tangle.rules.subprocess.run", return_value=CompletedProcess([], 0, stdout=gimme_output, stderr="")):
+            with tempfile.TemporaryDirectory() as tmpd:
+                rows = Rules(
+                    TFMotifs.has_within(20, "GM.5.0.Rel", "GM.5.0.bZIP")
+                ).check([("p1", "g1")], os.path.join(tmpd, "rules.tsv"))
+
+        self.assertEqual(
+            rows[0]["TFMotifs.has_within(20, 'GM.5.0.Rel', 'GM.5.0.bZIP', min_score_threshold=8)"],
+            RULE_TRUE,
+        )
+
+    def test_tf_motifs_without_scope_ignores_hits_outside_exons_and_introns(self):
+        self.fx.write_three_exon_gene("p1", "g1", "+")
+        gimme_output = "\n".join([
+            "sequence start end feature score strand",
+            "seq0 82 85 GM.5.0.Rel.0001 8.0 +",
+            "seq0 86 90 GM.5.0.bZIP.0001 8.0 -",
+            "",
+        ])
+
+        with patch("tangle.rules.subprocess.run", return_value=CompletedProcess([], 0, stdout=gimme_output, stderr="")):
+            with tempfile.TemporaryDirectory() as tmpd:
+                rows = Rules(
+                    TFMotifs.has_within(20, "GM.5.0.Rel", "GM.5.0.bZIP")
+                ).check([("p1", "g1")], os.path.join(tmpd, "rules.tsv"))
+
+        self.assertEqual(rows[0]["pass all"], RULE_MAYBE)
+
+    def test_tf_motifs_in_exon_matches_any_exon(self):
+        self.fx.write_three_exon_gene("p1", "g1", "+")
+        gimme_output = "\n".join([
+            "sequence start end feature score strand",
+            "seq0 32 35 GM.5.0.Rel.0001 8.0 +",
+            "seq0 37 40 GM.5.0.bZIP.0001 8.0 -",
+            "",
+        ])
+
+        with patch("tangle.rules.subprocess.run", return_value=CompletedProcess([], 0, stdout=gimme_output, stderr="")):
+            with tempfile.TemporaryDirectory() as tmpd:
+                rows = Rules(
+                    TFMotifs.has_within(20, "GM.5.0.Rel", "GM.5.0.bZIP").in_exon()
+                ).check([("p1", "g1")], os.path.join(tmpd, "rules.tsv"))
+
+        self.assertEqual(
+            rows[0]["TFMotifs.has_within(20, 'GM.5.0.Rel', 'GM.5.0.bZIP', min_score_threshold=8).in_exon()"],
+            RULE_TRUE,
+        )
+
+    def test_tf_motifs_in_numbered_exon_uses_gene_direction(self):
+        self.fx.write_three_exon_gene("p1", "g1", "-")
+        gimme_output = "\n".join([
+            "sequence start end feature score strand",
+            "seq0 52 55 GM.5.0.Rel.0001 8.0 -",
+            "seq0 57 60 GM.5.0.bZIP.0001 8.0 +",
+            "",
+        ])
+
+        with patch("tangle.rules.subprocess.run", return_value=CompletedProcess([], 0, stdout=gimme_output, stderr="")):
+            with tempfile.TemporaryDirectory() as tmpd:
+                rows = Rules(
+                    TFMotifs.has_within(20, "GM.5.0.Rel", "GM.5.0.bZIP").in_exon(2)
+                ).check([("p1", "g1")], os.path.join(tmpd, "rules.tsv"))
+
+        self.assertEqual(
+            rows[0]["TFMotifs.has_within(20, 'GM.5.0.Rel', 'GM.5.0.bZIP', min_score_threshold=8).in_exon(2)"],
+            RULE_TRUE,
+        )
+
+    def test_tf_motifs_between_uses_locus_coordinates(self):
+        self.fx.write_three_exon_gene("p1", "g1", "+")
+        gimme_output = "\n".join([
+            "sequence start end feature score strand",
+            "seq0 82 85 GM.5.0.Rel.0001 8.0 +",
+            "seq0 86 90 GM.5.0.bZIP.0001 8.0 -",
+            "",
+        ])
+
+        with patch("tangle.rules.subprocess.run", return_value=CompletedProcess([], 0, stdout=gimme_output, stderr="")):
+            with tempfile.TemporaryDirectory() as tmpd:
+                rows = Rules(
+                    TFMotifs.has_within(20, "GM.5.0.Rel", "GM.5.0.bZIP").between(90, 81)
+                ).check([("p1", "g1")], os.path.join(tmpd, "rules.tsv"))
+
+        self.assertEqual(
+            rows[0]["TFMotifs.has_within(20, 'GM.5.0.Rel', 'GM.5.0.bZIP', min_score_threshold=8).between(90, 81)"],
+            RULE_TRUE,
+        )
+
+    def test_tf_motifs_scope_methods_can_only_be_called_once(self):
+        base = TFMotifs.has_within(20, "GM.5.0.Rel", "GM.5.0.bZIP")
+
+        scoped_rules = [
+            base.in_exon(),
+            base.in_exon(2),
+            base.in_intron(),
+            base.in_intron(2),
+            base.between(10, 20),
+        ]
+
+        for scoped_rule in scoped_rules:
+            with self.assertRaises(ValueError):
+                scoped_rule.in_exon()
+            with self.assertRaises(ValueError):
+                scoped_rule.in_intron()
+            with self.assertRaises(ValueError):
+                scoped_rule.between(10, 20)
 
 
 class TestRuleParsingHelpers(unittest.TestCase):

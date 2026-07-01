@@ -341,52 +341,74 @@ class TFMotifs(object):
 
     @staticmethod
     def has_within(distance, motif_a, motif_b, min_score_threshold=8):
-        return TFMotifWithinBuilder(distance, motif_a, motif_b, min_score_threshold)
+        return TFMotifWithinRule(distance, motif_a, motif_b, min_score_threshold)
 
 
-class TFMotifWithinBuilder(object):
+class TFMotifWithinRule(Rule):
 
-    def __init__(self, distance, motif_a, motif_b, min_score_threshold):
+    def __init__(self, distance, motif_a, motif_b, min_score_threshold, scope=None):
         self.distance = distance
         self.motif_a = motif_a
         self.motif_b = motif_b
         self.min_score_threshold = min_score_threshold
+        self.scope = scope
+        self.label = self._label()
 
-    def in_intron(self, intron_number):
-        return TFMotifWithinIntronRule(
+    def _label(self):
+        base = (
+            f"TFMotifs.has_within({self.distance}, '{self.motif_a}', '{self.motif_b}', "
+            f"min_score_threshold={self.min_score_threshold})"
+        )
+        if self.scope is None:
+            return base
+        scope_type = self.scope[0]
+        if scope_type == "intron":
+            intron_number = self.scope[1]
+            if intron_number is None:
+                return f"{base}.in_intron()"
+            return f"{base}.in_intron({intron_number})"
+        if scope_type == "exon":
+            exon_number = self.scope[1]
+            if exon_number is None:
+                return f"{base}.in_exon()"
+            return f"{base}.in_exon({exon_number})"
+        if scope_type == "between":
+            return f"{base}.between({self.scope[1]}, {self.scope[2]})"
+        raise ValueError(f"Unsupported TFMotif scope: {self.scope}")
+
+    def in_intron(self, intron_number=None):
+        self._require_unscoped()
+        return TFMotifWithinRule(
             self.distance,
             self.motif_a,
             self.motif_b,
             self.min_score_threshold,
-            intron_number,
+            scope=("intron", intron_number),
         )
 
-
-@dataclass
-class GimmeHit:
-    sequence: str
-    start: int
-    end: int
-    feature: str
-    score: float
-    strand: str
-
-    def normalized_interval(self):
-        return (min(self.start, self.end), max(self.start, self.end))
-
-
-class TFMotifWithinIntronRule(Rule):
-
-    def __init__(self, distance, motif_a, motif_b, min_score_threshold, intron_number):
-        self.distance = distance
-        self.motif_a = motif_a
-        self.motif_b = motif_b
-        self.min_score_threshold = min_score_threshold
-        self.intron_number = intron_number
-        self.label = (
-            f"TFMotifs.has_within({distance}, '{motif_a}', '{motif_b}', "
-            f"min_score_threshold={min_score_threshold}).in_intron({intron_number})"
+    def in_exon(self, exon_number=None):
+        self._require_unscoped()
+        return TFMotifWithinRule(
+            self.distance,
+            self.motif_a,
+            self.motif_b,
+            self.min_score_threshold,
+            scope=("exon", exon_number),
         )
+
+    def between(self, start, end):
+        self._require_unscoped()
+        return TFMotifWithinRule(
+            self.distance,
+            self.motif_a,
+            self.motif_b,
+            self.min_score_threshold,
+            scope=("between", start, end),
+        )
+
+    def _require_unscoped(self):
+        if self.scope is not None:
+            raise ValueError("TFMotifs rules can only be scoped once")
 
     def evaluate_many(self, contexts):
         sequence_ids = {f"seq{i}": context for i, context in enumerate(contexts)}
@@ -420,17 +442,16 @@ class TFMotifWithinIntronRule(Rule):
         return results
 
     def _evaluate_locus(self, locus, hits):
-        intron = _intron_interval(locus, self.intron_number)
-        if intron is None:
+        intervals = _scope_intervals(locus, self.scope)
+        if not intervals:
             return RULE_FALSE
-        intron_start, intron_end = intron
         motif_a_hits = []
         motif_b_hits = []
         for hit in hits:
             hit_start, hit_end = hit.normalized_interval()
             if hit.score < self.min_score_threshold:
                 continue
-            if hit_start < intron_start or hit_end > intron_end:
+            if not _hit_in_any_interval(hit_start, hit_end, intervals):
                 continue
             if _motif_matches(hit.feature, self.motif_a):
                 motif_a_hits.append((hit_start, hit_end))
@@ -441,6 +462,19 @@ class TFMotifWithinIntronRule(Rule):
                 if _edge_distance(a_start, a_end, b_start, b_end) <= self.distance:
                     return RULE_TRUE
         return RULE_MAYBE
+
+
+@dataclass
+class GimmeHit:
+    sequence: str
+    start: int
+    end: int
+    feature: str
+    score: float
+    strand: str
+
+    def normalized_interval(self):
+        return (min(self.start, self.end), max(self.start, self.end))
 
 
 def _intron_interval(locus, intron_number):
@@ -455,6 +489,48 @@ def _intron_interval(locus, intron_number):
     if start > end:
         return None
     return (start, end)
+
+
+def _all_intron_intervals(locus):
+    return [
+        interval
+        for interval in (_intron_interval(locus, i) for i in range(1, len(locus.cds_intervals_1b)))
+        if interval is not None
+    ]
+
+
+def _exon_interval(locus, exon_number):
+    if exon_number < 1:
+        raise ValueError("exon_number must be 1 or greater")
+    index = exon_number - 1
+    if index >= len(locus.cds_intervals_1b):
+        return None
+    return locus.cds_intervals_1b[index]
+
+
+def _scope_intervals(locus, scope):
+    if scope is None:
+        return list(locus.cds_intervals_1b) + _all_intron_intervals(locus)
+    scope_type = scope[0]
+    if scope_type == "intron":
+        intron_number = scope[1]
+        if intron_number is None:
+            return _all_intron_intervals(locus)
+        interval = _intron_interval(locus, intron_number)
+        return [] if interval is None else [interval]
+    if scope_type == "exon":
+        exon_number = scope[1]
+        if exon_number is None:
+            return list(locus.cds_intervals_1b)
+        interval = _exon_interval(locus, exon_number)
+        return [] if interval is None else [interval]
+    if scope_type == "between":
+        return [(min(scope[1], scope[2]), max(scope[1], scope[2]))]
+    raise ValueError(f"Unsupported TFMotif scope: {scope}")
+
+
+def _hit_in_any_interval(hit_start, hit_end, intervals):
+    return any(hit_start >= start and hit_end <= end for start, end in intervals)
 
 
 def _parse_gimme_scan_output(text):
