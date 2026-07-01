@@ -1,5 +1,6 @@
 import csv
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -55,6 +56,31 @@ def _edge_distance(a_start, a_end, b_start, b_end):
     return a_start - b_end
 
 
+def _safe_filename(value):
+    value = re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("_")
+    return value[:120] or "rule"
+
+
+def _rule_artifacts_dir(artifacts_dir, rule):
+    if artifacts_dir is None:
+        return None
+    return os.path.join(artifacts_dir, _safe_filename(rule.label))
+
+
+def _run_command(cmd, artifacts_dir=None):
+    if artifacts_dir is not None:
+        os.makedirs(artifacts_dir, exist_ok=True)
+        with open(os.path.join(artifacts_dir, "command.txt"), "w", encoding="utf-8") as f:
+            f.write(" ".join(cmd) + "\n")
+    completed = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    if artifacts_dir is not None:
+        with open(os.path.join(artifacts_dir, "stdout.txt"), "w", encoding="utf-8") as f:
+            f.write(completed.stdout)
+        with open(os.path.join(artifacts_dir, "stderr.txt"), "w", encoding="utf-8") as f:
+            f.write(completed.stderr)
+    return completed
+
+
 class Rule(object):
 
     def __and__(self, other):
@@ -66,7 +92,7 @@ class Rule(object):
     def evaluate(self, context):
         raise NotImplementedError
 
-    def evaluate_many(self, contexts):
+    def evaluate_many(self, contexts, artifacts_dir=None):
         results = {}
         for context in contexts:
             try:
@@ -152,14 +178,17 @@ class Rules(object):
     def atomic_rules(self):
         return self.rule.atomic_rules()
 
-    def check(self, protein_keys, output_tsv):
+    def check(self, protein_keys, output_tsv, artifacts_dir=None):
         contexts = [
             RuleContext(CuratedProtein(protein_accession, genome_accession))
             for protein_accession, genome_accession in protein_keys
         ]
         atomic_rules = self.atomic_rules()
+        if artifacts_dir is not None:
+            artifacts_dir = os.path.abspath(artifacts_dir)
+            os.makedirs(artifacts_dir, exist_ok=True)
         atomic_results = {
-            rule.label: rule.evaluate_many(contexts)
+            rule.label: rule.evaluate_many(contexts, _rule_artifacts_dir(artifacts_dir, rule))
             for rule in atomic_rules
         }
 
@@ -289,12 +318,15 @@ class LeaderRule(Rule):
         self.prediction = prediction
         self.label = f"Leader.is_{prediction}()"
 
-    def evaluate_many(self, contexts):
+    def evaluate_many(self, contexts, artifacts_dir=None):
         sequence_ids = {f"seq{i}": context for i, context in enumerate(contexts)}
         results = {context.key: RULE_ERROR for context in contexts}
         try:
             with tempfile.TemporaryDirectory() as tmpd:
-                fasta_path = os.path.join(tmpd, "query.faa")
+                working_dir = artifacts_dir if artifacts_dir is not None else tmpd
+                if artifacts_dir is not None:
+                    os.makedirs(artifacts_dir, exist_ok=True)
+                fasta_path = os.path.join(working_dir, "query.faa")
                 fasta = {
                     sequence_id: context.protein.sequence_with_leader()
                     for sequence_id, context in sequence_ids.items()
@@ -302,14 +334,21 @@ class LeaderRule(Rule):
                 write_fasta_from_dict(fasta, fasta_path)
                 cmd = [
                     "docker", "run", "--rm", "--platform", "linux/amd64",
-                    "-v", f"{tmpd}:/data",
+                    "-v", f"{working_dir}:/data",
                     "local-targetp:2.0",
                     "-fasta", "/data/query.faa",
                     "-org", "non-pl",
                     "-format", "short",
                     "-stdout",
                 ]
-                completed = subprocess.run(cmd, check=True, capture_output=True, text=True)
+                completed = _run_command(cmd, artifacts_dir)
+                if completed.returncode != 0:
+                    raise subprocess.CalledProcessError(
+                        completed.returncode,
+                        cmd,
+                        output=completed.stdout,
+                        stderr=completed.stderr,
+                    )
                 predictions = _parse_targetp_output(completed.stdout)
         except Exception as e:
             print(f"{self.label} batch failed: {e}", file=sys.stderr)
@@ -410,7 +449,7 @@ class TFMotifWithinRule(Rule):
         if self.scope is not None:
             raise ValueError("TFMotifs rules can only be scoped once")
 
-    def evaluate_many(self, contexts):
+    def evaluate_many(self, contexts, artifacts_dir=None):
         sequence_ids = {f"seq{i}": context for i, context in enumerate(contexts)}
         results = {context.key: RULE_ERROR for context in contexts}
         loci = {}
@@ -418,14 +457,24 @@ class TFMotifWithinRule(Rule):
             for sequence_id, context in sequence_ids.items():
                 loci[sequence_id] = context.protein.genomic_locus_with_leader()
             with tempfile.TemporaryDirectory() as tmpd:
-                fasta_path = os.path.join(tmpd, "locus.fna")
+                working_dir = artifacts_dir if artifacts_dir is not None else tmpd
+                if artifacts_dir is not None:
+                    os.makedirs(artifacts_dir, exist_ok=True)
+                fasta_path = os.path.join(working_dir, "locus.fna")
                 fasta = {
                     sequence_id: locus.sequence()
                     for sequence_id, locus in loci.items()
                 }
                 write_fasta_from_dict(fasta, fasta_path)
                 cmd = ["gimme", "scan", fasta_path, "-b", "-c", "0.85"]
-                completed = subprocess.run(cmd, check=True, capture_output=True, text=True)
+                completed = _run_command(cmd, artifacts_dir)
+                if completed.returncode != 0:
+                    raise subprocess.CalledProcessError(
+                        completed.returncode,
+                        cmd,
+                        output=completed.stdout,
+                        stderr=completed.stderr,
+                    )
                 hits_by_sequence = _parse_gimme_scan_output(completed.stdout)
         except Exception as e:
             print(f"{self.label} batch failed: {e}", file=sys.stderr)

@@ -136,6 +136,79 @@ class TestRules(unittest.TestCase):
         self.assertEqual(rows[0]["pass all"], RULE_FALSE)
         self.assertEqual(rows[0]["Leader.is_mTP()"], RULE_ERROR)
 
+    def test_rules_check_writes_artifacts_for_batch_tools(self):
+        self.fx.write_three_exon_gene("p1", "g1", "+")
+        targetp_output = "\n".join([
+            "# TargetP-2.0",
+            "seq0\tmTP\t0.1\t0.2\t0.7\tCS pos: 1-2. AA-AA. Pr: 0.1",
+            "",
+        ])
+        gimme_output = "\n".join([
+            "sequence start end feature score strand",
+            "seq0 12 17 GM.5.0.Rel.0001 8.0 +",
+            "seq0 25 30 GM.5.0.bZIP.0001 8.0 -",
+            "",
+        ])
+
+        def fake_run(cmd, check, capture_output, text):
+            if cmd[0] == "docker":
+                return CompletedProcess(cmd, 0, stdout=targetp_output, stderr="targetp stderr")
+            if cmd[0] == "gimme":
+                return CompletedProcess(cmd, 0, stdout=gimme_output, stderr="gimme stderr")
+            raise AssertionError(cmd)
+
+        with patch("tangle.rules.subprocess.run", side_effect=fake_run):
+            with tempfile.TemporaryDirectory() as tmpd:
+                out = os.path.join(tmpd, "rules.tsv")
+                artifacts = os.path.join(tmpd, "artifacts")
+                rows = Rules(
+                    Leader.is_mTP()
+                    & TFMotifs.has_within(20, "GM.5.0.Rel", "GM.5.0.bZIP").in_intron()
+                ).check([("p1", "g1")], out, artifacts_dir=artifacts)
+
+                self.assertEqual(rows[0]["pass all"], RULE_TRUE)
+                artifact_dirs = os.listdir(artifacts)
+                leader_dir = os.path.join(artifacts, next(d for d in artifact_dirs if d.startswith("Leader.is_mTP")))
+                tf_dir = os.path.join(artifacts, next(d for d in artifact_dirs if d.startswith("TFMotifs.has_within")))
+
+                self.assertTrue(os.path.exists(os.path.join(leader_dir, "query.faa")))
+                self.assertTrue(os.path.exists(os.path.join(leader_dir, "command.txt")))
+                with open(os.path.join(leader_dir, "stdout.txt"), "r", encoding="utf-8") as f:
+                    self.assertEqual(f.read(), targetp_output)
+                with open(os.path.join(leader_dir, "stderr.txt"), "r", encoding="utf-8") as f:
+                    self.assertEqual(f.read(), "targetp stderr")
+
+                self.assertTrue(os.path.exists(os.path.join(tf_dir, "locus.fna")))
+                self.assertTrue(os.path.exists(os.path.join(tf_dir, "command.txt")))
+                with open(os.path.join(tf_dir, "stdout.txt"), "r", encoding="utf-8") as f:
+                    self.assertEqual(f.read(), gimme_output)
+                with open(os.path.join(tf_dir, "stderr.txt"), "r", encoding="utf-8") as f:
+                    self.assertEqual(f.read(), "gimme stderr")
+
+    def test_rules_check_uses_absolute_artifact_paths_for_docker_mounts(self):
+        self.fx.write_protein_fixture("p1", "g1")
+
+        def fake_run(cmd, check, capture_output, text):
+            mount_arg = cmd[cmd.index("-v") + 1]
+            mounted_path = mount_arg.split(":", 1)[0]
+            self.assertTrue(os.path.isabs(mounted_path))
+            return CompletedProcess(cmd, 0, stdout="seq0\tmTP\t0.1\t0.2\t0.7\t\n", stderr="")
+
+        with patch("tangle.rules.subprocess.run", side_effect=fake_run):
+            with tempfile.TemporaryDirectory() as tmpd:
+                old_cwd = os.getcwd()
+                try:
+                    os.chdir(tmpd)
+                    rows = Rules(Leader.is_mTP()).check(
+                        [("p1", "g1")],
+                        "rules.tsv",
+                        artifacts_dir="tmp",
+                    )
+                finally:
+                    os.chdir(old_cwd)
+
+        self.assertEqual(rows[0]["pass all"], RULE_TRUE)
+
     def test_or_and_and_composite_results_use_true_false_maybe_error(self):
         self.fx.write_three_exon_gene("p1", "g1", "+")
         gimme_output = "\n".join([
