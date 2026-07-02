@@ -40,6 +40,21 @@ def _merge_or(values):
     return RULE_FALSE
 
 
+def _result_counts(values):
+    counts = {RULE_TRUE: 0, RULE_FALSE: 0, RULE_MAYBE: 0, RULE_ERROR: 0}
+    for value in values:
+        counts[value] = counts.get(value, 0) + 1
+    return counts
+
+
+def _format_result_counts(counts):
+    return " ".join([
+        f"{key}={counts[key]}"
+        for key in (RULE_TRUE, RULE_FALSE, RULE_MAYBE, RULE_ERROR)
+        if counts.get(key, 0)
+    ]) or "no results"
+
+
 def _target_prefix(value):
     return str(value).split(".", 1)[0]
 
@@ -178,7 +193,7 @@ class Rules(object):
     def atomic_rules(self):
         return self.rule.atomic_rules()
 
-    def check(self, protein_keys, output_tsv, artifacts_dir=None):
+    def check(self, protein_keys, output_tsv, artifacts_dir=None, trace=True):
         contexts = [
             RuleContext(CuratedProtein(protein_accession, genome_accession))
             for protein_accession, genome_accession in protein_keys
@@ -187,10 +202,17 @@ class Rules(object):
         if artifacts_dir is not None:
             artifacts_dir = os.path.abspath(artifacts_dir)
             os.makedirs(artifacts_dir, exist_ok=True)
-        atomic_results = {
-            rule.label: rule.evaluate_many(contexts, _rule_artifacts_dir(artifacts_dir, rule))
-            for rule in atomic_rules
-        }
+        atomic_results = {}
+        total_rules = len(atomic_rules)
+        total_proteins = len(contexts)
+        for i, rule in enumerate(atomic_rules, start=1):
+            if trace:
+                print(f"[rules {i}/{total_rules}] {rule.label}: {total_proteins} proteins", file=sys.stderr)
+            rule_results = rule.evaluate_many(contexts, _rule_artifacts_dir(artifacts_dir, rule))
+            atomic_results[rule.label] = rule_results
+            if trace:
+                counts = _result_counts(rule_results.values())
+                print(f"[rules {i}/{total_rules}] done: {_format_result_counts(counts)}", file=sys.stderr)
 
         rows = []
         for context in contexts:

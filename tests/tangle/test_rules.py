@@ -1,4 +1,5 @@
 import csv
+import io
 import os
 import tempfile
 import unittest
@@ -124,6 +125,44 @@ class TestRules(unittest.TestCase):
 
             self.assertEqual(rows[0]["pass all"], RULE_TRUE)
             self.assertEqual(self.read_tsv(out)[0]["Pfam.matches('PF02777')"], RULE_TRUE)
+
+    def test_rules_check_traces_each_atomic_rule_concisely(self):
+        self.fx.write_protein_fixture("p1", "g1")
+        DetectedTable.write_tsv(str(self.fx.area_genomics / "protein_pfam.tsv"), [
+            self.fx.detected_row("p1", "g1", "PF02777.24", "Pfam"),
+        ])
+        DetectedTable.write_tsv(str(self.fx.area_genomics / "protein_ko_assigned.tsv"), [
+            self.fx.detected_row("p1", "g1", "K00001", "KO"),
+        ])
+        err = io.StringIO()
+
+        with patch("sys.stderr", err):
+            with tempfile.TemporaryDirectory() as tmpd:
+                Rules(Pfam.matches("PF02777") & KO.matches("K04564")).check(
+                    [("p1", "g1")],
+                    os.path.join(tmpd, "rules.tsv"),
+                )
+
+        self.assertEqual(err.getvalue().splitlines(), [
+            "[rules 1/2] Pfam.matches('PF02777'): 1 proteins",
+            "[rules 1/2] done: true=1",
+            "[rules 2/2] KO.matches('K04564'): 1 proteins",
+            "[rules 2/2] done: false=1",
+        ])
+
+    def test_rules_check_trace_can_be_disabled(self):
+        self.fx.write_protein_fixture("p1", "g1")
+        err = io.StringIO()
+
+        with patch("sys.stderr", err):
+            with tempfile.TemporaryDirectory() as tmpd:
+                Rules(Pfam.matches("PF02777")).check(
+                    [("p1", "g1")],
+                    os.path.join(tmpd, "rules.tsv"),
+                    trace=False,
+                )
+
+        self.assertEqual(err.getvalue(), "")
 
     def test_rules_check_continues_with_error_values(self):
         self.fx.write_protein_fixture("p1", "g1")
