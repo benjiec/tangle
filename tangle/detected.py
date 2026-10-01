@@ -7,7 +7,7 @@ from .models import Table, Column
 
 DetectedTable = Table("detected", [
     Column("detection_type", values=("sequence", "model"), required=True),
-    Column("detection_method", required=True, values=("transdecoder", "blast", "bowtie", "hmm", "prost-t5-foldseek")),
+    Column("detection_method", required=True, values=("transdecoder", "blast", "bowtie", "hmm", "prost-t5-foldseek", "other")),
     Column("batch", required=True),
     Column("query_accession", required=True),
     Column("query_database", required=True),
