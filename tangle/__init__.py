@@ -19,7 +19,7 @@ def open_file_to_read(fn):
 @contextmanager
 def open_file_to_write(fn, mode):
     if fn == "-":
-        yield sys.stdin
+        yield sys.stdout
     else:
         mode = mode.replace("b","")
         if "t" not in mode:
